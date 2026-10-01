@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Password Generator</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0b1211;color:#cfe;display:grid;place-items:center;min-height:100vh;margin:0}
+.card{background:#111c1a;padding:24px;border-radius:12px;width:320px;text-align:center}
+h1{color:#14B8A6;font-size:20px}
+input{width:100%;padding:10px;background:#0b1211;color:#cfe;border:1px solid #14B8A6;border-radius:8px;box-sizing:border-box}
+button{margin-top:12px;padding:10px 16px;background:#14B8A6;color:#04201c;border:0;border-radius:8px;cursor:pointer;font-weight:600}
+</style></head><body>
+<div class="card">
+  <h1>Password Generator</h1>
+  <input id="out" readonly>
+  <p>Length: <input id="len" type="number" value="16" min="8" max="64" style="width:70px"></p>
+  <button onclick="gen()">Generate</button>
+</div>
+<script>
+function gen(){
+  const c="abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*";
+  const n=+document.getElementById("len").value;
+  const a=crypto.getRandomValues(new Uint32Array(n));
+  document.getElementById("out").value=[...a].map(x=>c[x%c.length]).join("");
+}
+gen();
+</script></body></html>
