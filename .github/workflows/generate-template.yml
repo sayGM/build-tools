@@ -15,6 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install gh-models
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh extension install github/gh-models
+
       - name: Generate new template
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
