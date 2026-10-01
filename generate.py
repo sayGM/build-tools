@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import subprocess
@@ -15,38 +14,21 @@ Output format: first line is only the slug (lowercase letters, numbers and hyphe
 then a line containing only ---, then the full HTML starting with <!DOCTYPE html>.
 Nothing else, no markdown fences."""
 
-payload = json.dumps({
-    "model": "openai/gpt-4.1",
-    "messages": [{"role": "user", "content": prompt}],
-    "max_tokens": 4000,
-})
-
 res = subprocess.run(
-    [
-        "curl", "-sS", "-L",
-        "-D", "/tmp/headers.txt",
-        "-o", "/tmp/body.txt",
-        "-w", "%{http_code}",
-        "https://models.github.ai/inference/chat/completions",
-        "-H", "Content-Type: application/json",
-        "-H", "Authorization: Bearer " + os.environ["GITHUB_TOKEN"],
-        "-d", payload,
-    ],
-    capture_output=True, text=True, timeout=150,
+    ["gh", "models", "run", "openai/gpt-4.1"],
+    input=prompt,
+    capture_output=True,
+    text=True,
+    timeout=170,
+    env={**os.environ, "GH_TOKEN": os.environ["GITHUB_TOKEN"]},
 )
 
-status = res.stdout.strip()
-body_file = Path("/tmp/body.txt")
-raw = body_file.read_text(encoding="utf-8", errors="replace") if body_file.exists() else ""
+text = res.stdout.strip()
 
-try:
-    text = json.loads(raw)["choices"][0]["message"]["content"].strip()
-except Exception:
-    hdr_file = Path("/tmp/headers.txt")
-    headers = hdr_file.read_text(errors="replace")[:600] if hdr_file.exists() else ""
+if res.returncode != 0 or len(text) < 100:
     raise SystemExit(
-        f"Failed (status {status}, curl: {res.stderr.strip()})\n"
-        f"BODY: {raw[:500]!r}\nHEADERS:\n{headers}"
+        f"gh models failed (code {res.returncode})\n"
+        f"STDOUT: {res.stdout[:500]!r}\nSTDERR: {res.stderr[:500]!r}"
     )
 
 text = re.sub(r"^```[a-z]*\n|\n```$", "", text).strip()
@@ -54,7 +36,7 @@ text = re.sub(r"^```[a-z]*\n|\n```$", "", text).strip()
 try:
     slug, html = text.split("\n---\n", 1)
 except ValueError:
-    raise SystemExit("Bad output format, skipping")
+    raise SystemExit(f"Bad output format, skipping. Got: {text[:300]!r}")
 
 slug, html = slug.strip(), html.strip()
 
