@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epoch Toolkit</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1f2f2c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .live-counter {
+            font-family: monospace;
+            font-size: 1.8rem;
+            color: var(--accent);
+            letter-spacing: 1px;
+            margin: 10px 0;
+        }
+
+        .label {
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            background: #080d0c;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: monospace;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .result-item {
+            margin-bottom: 16px;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .value {
+            font-family: monospace;
+            background: #080d0c;
+            padding: 8px 12px;
+            border-radius: 4px;
+            word-break: break-all;
+            display: block;
+            border-left: 3px solid var(--accent);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            background: var(--border);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: -8px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .live-counter { font-size: 1.4rem; }
+            .card { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <span class="label">Current Unix Epoch</span>
+        <div class="live-counter" id="live-epoch">0000000000</div>
+        <div class="btn-group">
+            <button onclick="copyLive()">Copy Seconds</button>
+            <button class="secondary" onclick="copyLive(true)">Copy Millis</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h1>Converter</h1>
+        
+        <div class="result-item">
+            <label class="label">Timestamp or ISO String</label>
+            <input type="text" id="main-input" placeholder="e.g. 1715600000 or 2024-05-13T12:00:00Z">
+            <div class="hint" id="detection-hint">Detecting: Seconds</div>
+        </div>
+
+        <div class="grid">
+            <div class="result-item">
+                <span class="label">Local Time</span>
+                <span class="value" id="res-local">-</span>
+            </div>
+            <div class="result-item">
+                <span class="label">UTC Time</span>
+                <span class="value" id="res-utc">-</span>
+            </div>
+        </div>
+
+        <div class="result-item" style="margin-top: 16px;">
+            <span class="label">Relative</span>
+            <span class="value" id="res-relative">-</span>
+        </div>
+
+        <div class="grid" style="margin-top: 16px;">
+            <div class="result-item">
+                <span class="label">Seconds</span>
+                <span class="value" id="res-sec">-</span>
+            </div>
+            <div class="result-item">
+                <span class="label">Milliseconds</span>
+                <span class="value" id="res-ms">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <span class="label">Quick Reference</span>
+        <div style="font-size: 0.85rem; color: var(--text-dim); display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>1 Minute: 60s</div>
+            <div>1 Hour: 3,600s</div>
+            <div>1 Day: 86,400s</div>
+            <div>1 Week: 604,800s</div>
+            <div>1 Month (30d): 2.592M s</div>
+            <div>1 Year (365d): 31.536M s</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const liveEl = document.getElementById('live-epoch');
+    const inputEl = document.getElementById('main-input');
+    const hintEl = document.getElementById('detection-hint');
+    
+    const resLocal = document.getElementById('res-local');
+    const resUtc = document.getElementById('res-utc');
+    const resRelative = document.getElementById('res-relative');
+    const resSec = document.getElementById('res-sec');
+    const resMs = document.getElementById('res-ms');
+
+    function updateLive() {
+        const now = Math.floor(Date.now() / 1000);
+        liveEl.textContent = now;
+    }
+
+    setInterval(updateLive, 1000);
+    updateLive();
+
+    function copyLive(isMs = false) {
+        const val = isMs ? Date.now().toString() : Math.floor(Date.now() / 1000).toString();
+        navigator.clipboard.writeText(val);
+    }
+
+    function formatRelative(ms) {
+        const diff = ms - Date.now();
+        const absDiff = Math.abs(diff);
+        const seconds = Math.floor(absDiff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        const suffix = diff > 0 ? ' from now' : ' ago';
+        
+        if (seconds < 60) return seconds + 's' + suffix;
+        if (minutes < 60) return minutes + 'm ' + (seconds % 60) + 's' + suffix;
+        if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm' + suffix;
+        return days + ' days' + suffix;
+    }
+
+    function processInput() {
+        const val = inputEl.value.trim();
+        if (!val) {
+            clearResults();
+            return;
+        }
+
+        let date;
+        let magnitude = "Seconds";
+
+        // Check if numeric
+        if (/^\d+$/.test(val)) {
+            const num = parseInt(val);
+            // Heuristics for detection
+            if (num > 1e14) { // Micro/Nano - simplified to just treat as huge
+                magnitude = "Large (Likely µs or ns)";
+                date = new Date(num / 1000); 
+            } else if (num > 1e12) { // Milliseconds
+                magnitude = "Milliseconds";
+                date = new Date(num);
+            } else { // Seconds
+                magnitude = "Seconds";
+                date = new Date(num * 1000);
+            }
+        } else {
+            // Try parsing as date string
+            date = new Date(val);
+            magnitude = "Date String";
+        }
+
+        if (isNaN(date.getTime())) {
+            hintEl.textContent = "Invalid Format";
+            hintEl.style.color = "#ef4444";
+            return;
+        }
+
+        hintEl.textContent = `Detected: ${magnitude}`;
+        hintEl.style.color = "var(--text-dim)";
+
+        resLocal.textContent = date.toLocaleString();
+        resUtc.textContent = date.toUTCString();
+        resRelative.textContent = formatRelative(date.getTime());
+        resSec.textContent = Math.floor(date.getTime() / 1000);
+        resMs.textContent = date.getTime();
+    }
+
+    function clearResults() {
+        resLocal.textContent = "-";
+        resUtc.textContent = "-";
+        resRelative.textContent = "-";
+        resSec.textContent = "-";
+        resMs.textContent = "-";
+        hintEl.textContent = "Detecting: ...";
+    }
+
+    inputEl.addEventListener('input', processInput);
+    
+    // Set initial value to now
+    inputEl.value = Math.floor(Date.now() / 1000);
+    processInput();
+</script>
+
+</body>
+</html>
