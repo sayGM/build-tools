@@ -15,6 +15,8 @@ Output format: first line is only the slug (lowercase letters, numbers and hyphe
 then a line containing only ---, then the full HTML starting with <!DOCTYPE html>.
 Nothing else, no markdown fences."""
 
+import urllib.error
+
 req = urllib.request.Request(
     "https://models.github.ai/inference/chat/completions",
     data=json.dumps({
@@ -24,12 +26,24 @@ req = urllib.request.Request(
     }).encode(),
     headers={
         "Content-Type": "application/json",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "daily-tools-generator",
         "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
     },
 )
 
-with urllib.request.urlopen(req, timeout=120) as r:
-    text = json.load(r)["choices"][0]["message"]["content"].strip()
+try:
+    with urllib.request.urlopen(req, timeout=120) as r:
+        raw = r.read().decode("utf-8", errors="replace")
+        status = r.status
+except urllib.error.HTTPError as e:
+    raise SystemExit(f"HTTP {e.code}: {e.read().decode('utf-8', errors='replace')[:500]}")
+
+try:
+    text = json.loads(raw)["choices"][0]["message"]["content"].strip()
+except Exception:
+    raise SystemExit(f"Unexpected response (status {status}): {raw[:500]!r}")
 
 text = re.sub(r"^```[a-z]*\n|\n```$", "", text).strip()
 
