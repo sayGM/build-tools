@@ -1,6 +1,8 @@
+import json
 import os
 import re
-import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 existing = sorted(p.stem for p in Path("templates").glob("*.html"))
@@ -14,22 +16,53 @@ Output format: first line is only the slug (lowercase letters, numbers and hyphe
 then a line containing only ---, then the full HTML starting with <!DOCTYPE html>.
 Nothing else, no markdown fences."""
 
-res = subprocess.run(
-    ["gh", "models", "run", "openai/gpt-4.1"],
-    input=prompt,
-    capture_output=True,
-    text=True,
-    timeout=170,
-    env={**os.environ, "GH_TOKEN": os.environ["GITHUB_TOKEN"]},
-)
+MODELS = [
+    os.environ.get("GEMINI_MODEL", "").strip(),
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+]
+MODELS = [m for m in MODELS if m]
 
-text = res.stdout.strip()
+payload = json.dumps({
+    "contents": [{"parts": [{"text": prompt}]}],
+    "generationConfig": {"maxOutputTokens": 8192},
+}).encode()
 
-if res.returncode != 0 or len(text) < 100:
-    raise SystemExit(
-        f"gh models failed (code {res.returncode})\n"
-        f"STDOUT: {res.stdout[:500]!r}\nSTDERR: {res.stderr[:500]!r}"
+text = None
+errors = []
+
+for model in MODELS:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": os.environ["GEMINI_API_KEY"],
+        },
     )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            data = json.load(r)
+        parts = data["candidates"][0]["content"]["parts"]
+        text = "".join(p.get("text", "") for p in parts).strip()
+        if text:
+            print("Model used:", model)
+            break
+        errors.append(f"{model}: empty response")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")[:300]
+        errors.append(f"{model}: HTTP {e.code} {body}")
+        if e.code in (401, 403):
+            break
+    except Exception as e:
+        errors.append(f"{model}: {type(e).__name__} {e}")
+
+if not text:
+    raise SystemExit("All models failed:\n" + "\n".join(errors))
 
 text = re.sub(r"^```[a-z]*\n|\n```$", "", text).strip()
 
@@ -39,6 +72,7 @@ except ValueError:
     raise SystemExit(f"Bad output format, skipping. Got: {text[:300]!r}")
 
 slug, html = slug.strip(), html.strip()
+html = re.sub(r"^```[a-z]*\n|\n```$", "", html).strip()
 
 if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", slug):
     raise SystemExit(f"Invalid slug: {slug}")
