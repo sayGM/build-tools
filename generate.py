@@ -1,7 +1,7 @@
 import json
 import os
 import re
-import urllib.request
+import subprocess
 from pathlib import Path
 
 existing = sorted(p.stem for p in Path("templates").glob("*.html"))
@@ -15,35 +15,39 @@ Output format: first line is only the slug (lowercase letters, numbers and hyphe
 then a line containing only ---, then the full HTML starting with <!DOCTYPE html>.
 Nothing else, no markdown fences."""
 
-import urllib.error
+payload = json.dumps({
+    "model": "openai/gpt-4.1",
+    "messages": [{"role": "user", "content": prompt}],
+    "max_tokens": 4000,
+})
 
-req = urllib.request.Request(
-    "https://models.github.ai/inference/chat/completions",
-    data=json.dumps({
-        "model": "openai/gpt-4.1",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 4000,
-    }).encode(),
-    headers={
-        "Content-Type": "application/json",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "daily-tools-generator",
-        "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
-    },
+res = subprocess.run(
+    [
+        "curl", "-sS", "-L",
+        "-D", "/tmp/headers.txt",
+        "-o", "/tmp/body.txt",
+        "-w", "%{http_code}",
+        "https://models.github.ai/inference/chat/completions",
+        "-H", "Content-Type: application/json",
+        "-H", "Authorization: Bearer " + os.environ["GITHUB_TOKEN"],
+        "-d", payload,
+    ],
+    capture_output=True, text=True, timeout=150,
 )
 
-try:
-    with urllib.request.urlopen(req, timeout=120) as r:
-        raw = r.read().decode("utf-8", errors="replace")
-        status = r.status
-except urllib.error.HTTPError as e:
-    raise SystemExit(f"HTTP {e.code}: {e.read().decode('utf-8', errors='replace')[:500]}")
+status = res.stdout.strip()
+body_file = Path("/tmp/body.txt")
+raw = body_file.read_text(encoding="utf-8", errors="replace") if body_file.exists() else ""
 
 try:
     text = json.loads(raw)["choices"][0]["message"]["content"].strip()
 except Exception:
-    raise SystemExit(f"Unexpected response (status {status}): {raw[:500]!r}")
+    hdr_file = Path("/tmp/headers.txt")
+    headers = hdr_file.read_text(errors="replace")[:600] if hdr_file.exists() else ""
+    raise SystemExit(
+        f"Failed (status {status}, curl: {res.stderr.strip()})\n"
+        f"BODY: {raw[:500]!r}\nHEADERS:\n{headers}"
+    )
 
 text = re.sub(r"^```[a-z]*\n|\n```$", "", text).strip()
 
