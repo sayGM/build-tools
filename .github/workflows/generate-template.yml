@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  models: read
 
 jobs:
   generate:
@@ -15,14 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install gh-models
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh extension install github/gh-models
-
       - name: Generate new template
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python generate.py
 
       - name: Commit if changed
