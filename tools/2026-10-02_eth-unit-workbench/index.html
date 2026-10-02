@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETH Unit Workbench</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --accent-hover: #0d9488;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1f2f2c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+        }
+
+        header {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            margin-bottom: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-family: 'Courier New', Courier, monospace;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            flex: 1;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background-color: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .result-item {
+            background: rgba(20, 184, 166, 0.05);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .result-value {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            text-align: right;
+            padding-left: 20px;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            padding: 2px;
+            font-size: 0.7rem;
+            text-decoration: underline;
+            flex: none;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--border);
+            color: var(--text-dim);
+        }
+
+        @media (max-width: 480px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: var(--bg);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>ETH Unit Workbench</h1>
+        <p class="subtitle">Precision Ethereum unit conversion & EVM data utility</p>
+    </header>
+
+    <div class="card">
+        <div class="section-title">Unit Converter</div>
+        
+        <div class="input-group">
+            <label>Amount</label>
+            <input type="text" id="unitInput" placeholder="Enter amount..." value="1">
+        </div>
+
+        <div class="grid">
+            <div class="input-group">
+                <label>From Unit</label>
+                <select id="fromUnit">
+                    <option value="18">Ether (10^18)</option>
+                    <option value="9">Gwei (10^9)</option>
+                    <option value="0">Wei (1)</option>
+                    <option value="6">USDC/USDT (10^6)</option>
+                    <option value="8">WBTC (10^8)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Precision (Decimals)</label>
+                <input type="number" id="customDecimals" value="18" min="0" max="78">
+            </div>
+        </div>
+
+        <div id="unitResults">
+            <!-- Results populated by JS -->
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">EVM Data Utility</div>
+        
+        <div class="input-group">
+            <label>BigInt / Hex / Dec String</label>
+            <textarea id="dataInput" placeholder="0x... or 12345..."></textarea>
+        </div>
+
+        <div class="btn-row">
+            <button onclick="toHex()">To Hex</button>
+            <button onclick="toDecimal()">To Decimal</button>
+            <button class="secondary" onclick="pad32()">Pad to 32 Bytes</button>
+        </div>
+
+        <div id="dataResults" style="margin-top: 16px;">
+            <!-- Results populated by JS -->
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast">Copied!</div>
+
+<script>
+    const unitInput = document.getElementById('unitInput');
+    const fromUnit = document.getElementById('fromUnit');
+    const customDecimals = document.getElementById('customDecimals');
+    const unitResults = document.getElementById('unitResults');
+    const dataInput = document.getElementById('dataInput');
+    const dataResults = document.getElementById('dataResults');
+    const toast = document.getElementById('toast');
+
+    // --- Unit Conversion Logic ---
+
+    function showToast(msg = "Copied!") {
+        toast.innerText = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => toast.style.opacity = '0', 2000);
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => showToast());
+    }
+
+    function parseToWei(val, decimals) {
+        try {
+            if (!val || isNaN(parseFloat(val))) return null;
+            let [integers, fractions] = val.split('.');
+            fractions = fractions || '';
+            if (fractions.length > decimals) {
+                fractions = fractions.substring(0, decimals);
+            } else {
+                fractions = fractions.padEnd(decimals, '0');
+            }
+            const integerPart = BigInt(integers || 0) * (10n ** BigInt(decimals));
+            const fractionPart = BigInt(fractions || 0);
+            return integerPart + fractionPart;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function formatFromWei(wei, decimals) {
+        const s = wei.toString().padStart(decimals + 1, '0');
+        const pos = s.length - decimals;
+        let res = s.slice(0, pos) + "." + s.slice(pos);
+        res = res.replace(/\.?0+$/, ""); // Trim trailing zeros
+        if (res.endsWith('.')) res = res.slice(0, -1);
+        if (res === "") res = "0";
+        return res;
+    }
+
+    function updateUnits() {
+        const val = unitInput.value.trim();
+        const dec = parseInt(fromUnit.value);
+        const targetDec = parseInt(customDecimals.value) || 0;
+        
+        const wei = parseToWei(val, dec);
+        
+        if (wei === null) {
+            unitResults.innerHTML = '<div class="result-label">Invalid input</div>';
+            return;
+        }
+
+        const units = [
+            { name: 'Wei', dec: 0 },
+            { name: 'Gwei', dec: 9 },
+            { name: 'Ether', dec: 18 },
+            { name: 'Target', dec: targetDec }
+        ];
+
+        unitResults.innerHTML = units.map(u => {
+            const displayVal = formatFromWei(wei, u.dec);
+            return `
+                <div class="result-item">
+                    <div>
+                        <div class="result-label">${u.name} ${u.dec > 0 ? `(10^${u.dec})` : ''}</div>
+                        <div class="result-value" id="val-${u.name}">${displayVal}</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('${displayVal}')">Copy</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // --- EVM Data Logic ---
+
+    function toHex() {
+        let val = dataInput.value.trim();
+        if (!val) return;
+        try {
+            if (val.startsWith('0x')) {
+                showToast("Already hex");
+                return;
+            }
+            const bi = BigInt(val);
+            const hex = '0x' + bi.toString(16);
+            displayDataResult(hex);
+        } catch (e) {
+            showToast("Invalid number");
+        }
+    }
+
+    function toDecimal() {
+        let val = dataInput.value.trim();
+        if (!val) return;
+        try {
+            const bi = BigInt(val);
+            displayDataResult(bi.toString());
+        } catch (e) {
+            showToast("Invalid data");
+        }
+    }
+
+    function pad32() {
+        let val = dataInput.value.trim();
+        if (!val) return;
+        try {
+            let hex = val.startsWith('0x') ? val.slice(2) : BigInt(val).toString(16);
+            if (hex.length > 64) {
+                showToast("Too large (> 32 bytes)");
+                return;
+            }
+            const padded = '0x' + hex.padStart(64, '0');
+            displayDataResult(padded);
+        } catch (e) {
+            showToast("Invalid data");
+        }
+    }
+
+    function displayDataResult(val) {
+        dataResults.innerHTML = `
+            <div class="result-item">
+                <div style="width: 100%">
+                    <div class="result-label">Output <span class="badge">${val.length > 20 ? val.length + ' chars' : ''}</span></div>
+                    <div class="result-value" style="text-align: left; padding: 5px 0;">${val}</div>
+                </div>
+                <button class="copy-btn" onclick="copyToClipboard('${val}')">Copy</button>
+            </div>
+        `;
+    }
+
+    // Event Listeners
+    unitInput.addEventListener('input', updateUnits);
+    fromUnit.addEventListener('change', updateUnits);
+    customDecimals.addEventListener('input', updateUnits);
+
+    // Init
+    updateUnits();
+
+</script>
+
+</body>
+</html>
