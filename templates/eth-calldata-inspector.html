@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eth Calldata Inspector</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1f2f2c;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            padding: 1rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .input-section {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        textarea {
+            width: 100%;
+            background: #070b0a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--accent);
+            padding: 1rem;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 120px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .stats span b {
+            color: var(--text);
+        }
+
+        .word-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .word-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 60px 1fr;
+        }
+
+        @media (max-width: 600px) {
+            .word-card {
+                grid-template-columns: 1fr;
+            }
+            .word-index {
+                border-right: none !important;
+                border-bottom: 1px solid var(--border);
+                padding: 0.5rem !important;
+            }
+        }
+
+        .word-index {
+            background: rgba(20, 184, 166, 0.05);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: monospace;
+            border-right: 1px solid var(--border);
+        }
+
+        .word-content {
+            padding: 1rem;
+        }
+
+        .word-hex {
+            font-family: monospace;
+            word-break: break-all;
+            color: var(--text);
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+
+        .decoding-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 0.75rem;
+        }
+
+        .decode-item {
+            font-size: 0.8rem;
+        }
+
+        .decode-label {
+            color: var(--text-dim);
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .decode-value {
+            font-family: monospace;
+            color: var(--accent);
+            word-break: break-all;
+        }
+
+        .selector-card {
+            border: 1px solid var(--accent);
+            background: rgba(20, 184, 166, 0.05);
+            margin-bottom: 1rem;
+        }
+
+        .copy-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            margin-left: 0.5rem;
+        }
+
+        .copy-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .error-msg {
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-dim);
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+        }
+
+        .tag {
+            font-size: 0.65rem;
+            padding: 1px 4px;
+            border-radius: 3px;
+            background: var(--border);
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            Eth Calldata Inspector
+        </h1>
+        <p class="subtitle">Slice EVM transaction data into 32-byte words for easy debugging</p>
+    </header>
+
+    <div class="input-section">
+        <label for="calldataInput">Input Hex Data</label>
+        <textarea id="calldataInput" placeholder="0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045..."></textarea>
+        <div id="errorMsg" class="error-msg">Invalid hex string provided.</div>
+        <div class="stats">
+            <span id="statBytes">Bytes: <b>0</b></span>
+            <span id="statWords">Words: <b>0</b></span>
+        </div>
+    </div>
+
+    <div id="output" class="word-list">
+        <div class="empty-state">Paste hex data above to begin inspection</div>
+    </div>
+</div>
+
+<script>
+    const input = document.getElementById('calldataInput');
+    const output = document.getElementById('output');
+    const statBytes = document.getElementById('statBytes');
+    const statWords = document.getElementById('statWords');
+    const errorMsg = document.getElementById('errorMsg');
+
+    input.addEventListener('input', processData);
+
+    function processData() {
+        let raw = input.value.trim().toLowerCase();
+        errorMsg.style.display = 'none';
+        
+        if (!raw) {
+            output.innerHTML = '<div class="empty-state">Paste hex data above to begin inspection</div>';
+            statBytes.innerHTML = 'Bytes: <b>0</b>';
+            statWords.innerHTML = 'Words: <b>0</b>';
+            return;
+        }
+
+        if (raw.startsWith('0x')) {
+            raw = raw.slice(2);
+        }
+
+        // Validate hex
+        if (!/^[0-9a-f]*$/.test(raw)) {
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        const byteCount = raw.length / 2;
+        statBytes.innerHTML = `Bytes: <b>${byteCount}</b>`;
+        
+        let html = '';
+
+        // Extract Selector (first 4 bytes / 8 chars)
+        if (raw.length >= 8) {
+            const selector = raw.slice(0, 8);
+            html += `
+                <div class="word-card selector-card">
+                    <div class="word-index">SIG</div>
+                    <div class="word-content">
+                        <label class="decode-label">Method Selector (4 Bytes)</label>
+                        <span class="word-hex">0x${selector}</span>
+                        <div class="decoding-grid">
+                            <div class="decode-item">
+                                <span class="decode-label">Description</span>
+                                <span class="decode-value">First 4 bytes of Keccak256 hash of the function signature.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            raw = raw.slice(8);
+        }
+
+        const words = [];
+        for (let i = 0; i < raw.length; i += 64) {
+            words.push(raw.slice(i, i + 64).padEnd(64, '0'));
+        }
+
+        statWords.innerHTML = `Words: <b>${words.length}</b>`;
+
+        words.forEach((word, index) => {
+            html += generateWordCard(word, index);
+        });
+
+        output.innerHTML = html;
+    }
+
+    function generateWordCard(hex, index) {
+        // Address: last 20 bytes (last 40 chars)
+        const address = '0x' + hex.slice(24);
+        
+        // Uint: Full 32 bytes to BigInt
+        let uintVal = '0';
+        try {
+            uintVal = BigInt('0x' + hex).toString();
+        } catch(e) {}
+
+        // Int: Handle signed integers (basic check for high bit)
+        let intVal = uintVal;
+        const firstDigit = parseInt(hex[0], 16);
+        if (firstDigit >= 8) {
+            try {
+                const bigIntValue = BigInt('0x' + hex);
+                const maxUint256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+                intVal = (bigIntValue - maxUint256 - 1n).toString();
+            } catch(e) {}
+        }
+
+        // String: UTF8 attempt
+        let utf8 = '';
+        try {
+            const bytes = [];
+            for (let i = 0; i < hex.length; i += 2) {
+                const b = parseInt(hex.substr(i, 2), 16);
+                if (b > 31 && b < 127) bytes.push(String.fromCharCode(b));
+                else if (b !== 0) bytes.push('·');
+            }
+            utf8 = bytes.join('') || '—';
+        } catch(e) { utf8 = '—'; }
+
+        return `
+            <div class="word-card">
+                <div class="word-index">${index}</div>
+                <div class="word-content">
+                    <span class="word-hex">${hex}</span>
+                    <div class="decoding-grid">
+                        <div class="decode-item">
+                            <span class="decode-label">Uint256</span>
+                            <span class="decode-value">${uintVal}</span>
+                        </div>
+                        <div class="decode-item">
+                            <span class="decode-label">Int256</span>
+                            <span class="decode-value">${intVal}</span>
+                        </div>
+                        <div class="decode-item">
+                            <span class="decode-label">Address <span class="tag">if padded</span></span>
+                            <span class="decode-value">${address}</span>
+                        </div>
+                        <div class="decode-item">
+                            <span class="decode-label">ASCII Preview</span>
+                            <span class="decode-value">${utf8}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Example trigger
+    const example = "0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000de0b6b3a7640000";
+    input.value = example;
+    processData();
+</script>
+
+</body>
+</html>
