@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CREATE2 Address Lab</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #0b1211;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #1c2e2b;
+      padding-bottom: 1rem;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(20, 184, 166, 0.15);
+      color: #14B8A6;
+      border: 1px solid rgba(20, 184, 166, 0.3);
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid #1c2e2b;
+      padding-bottom: 0.5rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: #e2e8f0;
+      background: #142220;
+    }
+    .tab-btn.active {
+      color: #14B8A6;
+      background: #112824;
+      border: 1px solid rgba(20, 184, 166, 0.3);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .card {
+      background-color: #111c1a;
+      border: 1px solid #1c2e2b;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 0.4rem;
+    }
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+    .label-row label {
+      margin-bottom: 0;
+    }
+    .label-action {
+      font-size: 0.75rem;
+      color: #14B8A6;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .label-action:hover {
+      color: #2dd4bf;
+    }
+    input[type="text"], textarea, select {
+      width: 100%;
+      background-color: #0b1413;
+      border: 1px solid #223d38;
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 0.6rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color 0.15s ease;
+    }
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #14B8A6;
+      box-shadow: 0 0 0 1px #14B8A6;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+      font-size: 0.8rem;
+      word-break: break-all;
+    }
+    .hint {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: 0.35rem;
+    }
+    .error-msg {
+      font-size: 0.75rem;
+      color: #f87171;
+      margin-top: 0.35rem;
+      display: none;
+    }
+    .row {
+      display: flex;
+      gap: 1rem;
+    }
+    @media (max-width: 640px) {
+      .row {
+        flex-direction: column;
+        gap: 0;
+      }
+      .row .form-group {
+        margin-bottom: 1rem;
+      }
+    }
+    .col {
+      flex: 1;
+    }
+    .btn-group {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .mini-btn {
+      background: #162a26;
+      border: 1px solid #23423c;
+      color: #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      padding: 0.25rem 0.55rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .mini-btn:hover {
+      background: #1c3b35;
+      color: #fff;
+      border-color: #14B8A6;
+    }
+    .btn {
+      background: #14B8A6;
+      color: #042f2e;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.65rem 1.25rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.15s ease;
+    }
+    .btn:hover {
+      background: #0d9488;
+      color: #ffffff;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: #ffffff;
+    }
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    .result-box {
+      background: #091210;
+      border: 1px solid rgba(20, 184, 166, 0.4);
+      border-radius: 8px;
+      padding: 1.2rem;
+      position: relative;
+    }
+    .result-label {
+      font-size: 0.72rem;
+      color: #14B8A6;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+    .result-address {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f8fafc;
