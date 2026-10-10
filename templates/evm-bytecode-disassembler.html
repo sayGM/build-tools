@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EVM Bytecode Disassembler</title>
+<style>
+  :root {
+    --bg: #0b1211;
+    --card: #111c1a;
+    --card-hover: #152421;
+    --border: #1b2e2b;
+    --accent: #14B8A6;
+    --accent-dim: rgba(20, 184, 166, 0.15);
+    --accent-glow: rgba(20, 184, 166, 0.35);
+    --text: #f0fdfa;
+    --text-muted: #648781;
+    --danger: #f43f5e;
+    --warning: #f59e0b;
+    --info: #38bdf8;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    padding: 1.5rem 1rem;
+    line-height: 1.5;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .badge {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(20, 184, 166, 0.3);
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-desc {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .toolbar-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  button, .preset-btn {
+    background: #162422;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+
+  button:hover, .preset-btn:hover {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  button.active {
+    background: var(--accent);
+    color: #042f2e;
+    font-weight: 600;
+    border-color: var(--accent);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #042f2e;
+    font-weight: 600;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover {
+    background: #0d9488;
+    color: #ffffff;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 110px;
+    background: #090f0e;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: #99f6e4;
+    padding: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    resize: vertical;
+    outline: none;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .stat-card {
+    background: #090f0e;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--accent);
+    margin-top: 0.2rem;
+  }
+
+  .stat-warn {
+    color: var(--warning);
+  }
+
+  .stat-danger {
+    color: var(--danger);
+  }
+
+  /* Insights / Panels */
+  .insights-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .insight-panel {
+    background: #0c1614;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem;
+  }
+
+  .insight-header {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .tag-item {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: #111f1d;
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    color: #ccfbf1;
+    cursor: pointer;
+  }
+
+  .tag-item:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Disassembly View */
+  .controls-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .search-input {
+    background: #090f0e;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 0.4rem 0.65rem;
+    font-size: 0.8rem;
+    outline: none;
+    min-width: 200px;
+  }
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .filter-chips {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.72rem;
+    border-radius: 4px;
+    background: #0e1917;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+  .filter-chip.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 520px;
+    position: relative;
+    background: #090f0e;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-align: left;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    background: #111d1a;
+    z-index: 2;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 0.6rem 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #13221f;
+  }
+
+  tbody tr:hover {
+    background: rgba(20, 184, 166, 0.05);
+  }
+
+  tbody tr.highlight {
+    background: rgba(20, 184, 166, 0.18) !important;
+  }
+
+  td {
+    padding: 0.45rem 0.75rem;
+    white-space: nowrap;
+  }
+
+  .pc-cell {
+    color: #5eead4;
+    font-weight: 600;
+  }
+
+  .op-cell {
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .op-flow { color: #f472b6; }
+  .op-storage { color: #fb923c; }
+  .op-memory { color: #38bdf8; }
+  .op-call { color: #e879f9; }
+  .op-push { color: #34d399; }
+  .op-dup, .op-swap { color: #94a3b8; }
+  .op-halt { color: #f87171; }
+  .op-system { color: #fbbf24; }
+  .op-log { color: #a78bfa; }
+
+  .push-data {
+    color: #6ee7b7;
+    word-break: break-all;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
+  }
+
+  .decoded-hint {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    margin-left: 0.4rem;
+  }
+
+  .cat-pill {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    display: inline-block;
+  }
+
+  .empty-state {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .cbor-box {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    background: #090f0e;
+    color: var(--text-muted);
+  }
+  .cbor-box strong {
+    color: var(--accent);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--accent);
+    color: #042f2e;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: translateY(10px);
+    z-index: 100;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 1rem 0.5rem; }
+    .card { padding: 0.85rem; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="title-group">
+      <h1>EVM Bytecode Disassembler</h1>
+      <span class="badge">Cancun Ready</span>
+    </div>
+    <div class="header-desc">
+      Disassemble raw Ethereum bytecode into opcodes, trace dispatch selectors, and inspect gas costs.
+    </div>
+  </header>
+
+  <!-- Input Section -->
+  <section class="card">
+    <div class="toolbar">
+      <span class="toolbar-label">Quick Presets:</span>
+      <button type="button" class="preset-btn" onclick="loadPreset('eip1167')">EIP-1167 Minimal Proxy</button>
+      <button type="button" class="preset-btn" onclick="loadPreset('counter')">Simple Storage (Solidity)</button>
+      <button type="button" class="preset-btn" onclick="loadPreset('reentrancy')">Reentrancy / Delegatecall</button>
+      <button type="button" class="preset-btn" onclick="loadPreset('cancun')">Cancun (MCOPY/TLOAD/PUSH0)</button>
+      <div style="flex-grow: 1;"></div>
+      <button type="button" onclick="clearInput()">Clear</button>
+    </div>
+
+    <textarea id="bytecodeInput" placeholder="Paste hex bytecode here (with or without 0x prefix)..." spellcheck="false"></textarea>
+
+    <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; justify-content: flex-end;">
+      <button type="button" class="btn-primary" onclick="disassemble()">Disassemble Bytecode</button>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Bytecode Size</div>
+        <div class="stat-value" id="statSize">0 B</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Instructions</div>
+        <div class="stat-value" id="statInstructions">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Base Gas Sum</div>
+        <div class="stat-value" id="statMinGas">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Storage Ops</div>
+        <div class="stat-value" id="statStorage">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">External Calls</div>
+        <div class="stat-value" id="statCalls">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">EIP-170 Limit (24.5 KB)</div>
+        <div class="stat-value" id="statEip170">0.0%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- High-level Insights Section -->
+  <div class="insights-bar" id="insightsRow" style="display: none;">
+    <div class="insight-panel">
+      <div class="insight-header">
+        <span>Detected Function Selectors (4-byte)</span>
+        <span id="selectorCount" class="badge">0</span>
+      </div>
+      <div class="tag-cloud" id="selectorsList">
+        <span style="color:var(--text-muted);font-size:0.75rem;">None detected</span>
+      </div>
+    </div>
+    <div class="insight-panel">
+      <div class="insight-header">
+        <span>Valid JUMPDEST Offsets</span>
+        <span id="jumpdestCount" class="badge">0</span>
+      </div>
+      <div class="tag-cloud" id="jumpdestList">
+        <span style="color:var(--text-muted);font-size:0.75rem;">None</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disassembly Explorer Section -->
+  <section class="card">
+    <div class="controls-bar">
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="filterText" class="search-input" placeholder="Search opcode / PC / hex..." oninput="filterTable()">
+        <div class="filter-chips" id="filterChips">
+          <span class="filter-chip active" data-cat="all" onclick="setCategoryFilter('all', this)">All</span>
+          <span class="filter-chip" data-cat="flow" onclick="setCategoryFilter('flow', this)">Flow</span>
+          <span class="filter-chip" data-cat="storage" onclick="setCategoryFilter('storage', this)">Storage</span>
+          <span class="filter-chip" data-cat="memory" onclick="setCategoryFilter('memory', this)">Memory</span>
+          <span class="filter-chip" data-cat="call" onclick="setCategoryFilter('call', this)">Calls</span>
+          <span class="filter-chip" data-cat="system" onclick="setCategoryFilter('system', this)">System</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="button" onclick="copyAsText()">Copy Assembly</button>
+        <button type="button" onclick="exportJson()">Export JSON</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 70px;">PC (HEX)</th>
+            <th style="width: 65px;">PC (DEC)</th>
+            <th style="width: 50px;">HEX</th>
+            <th style="width: 140px;">MNEMONIC</th>
+            <th>OPERAND / PUSH VALUE</th>
+            <th style="width: 75px;">GAS</th>
+            <th style="width: 75px;">STACK &Delta;</th>
+            <th style="width: 90px;">CATEGORY</th>
+          </tr>
+        </thead>
+        <tbody id="disassemblyBody">
+          <tr>
+            <td colspan="8" class="empty-state">No bytecode analyzed yet. Paste hex above or select a preset to begin.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Metadata breakdown footer -->
+    <div id="cborFooter" class="cbor-box" style="display: none;"></div>
+  </section>
+</div>
+
+<div id="toast" class="toast">Copied to clipboard!</div>
+
+<script>
+  // Complete EVM Opcode Reference
+  const OPCODES = {
+    0x00: { name: 'STOP', gas: 0, in: 0, out: 0, cat: 'halt' },
+    0x01: { name: 'ADD', gas: 3, in: 2, out: 1, cat: 'arithmetic' },
+    0x02: { name: 'MUL', gas: 5, in: 2, out: 1, cat: 'arithmetic' },
+    0x03: { name: 'SUB', gas: 3, in: 2, out: 1, cat: 'arithmetic' },
+    0x04: { name: 'DIV', gas: 5, in: 2, out: 1, cat: 'arithmetic' },
+    0x05: { name: 'SDIV', gas: 5, in: 2, out: 1, cat: 'arithmetic' },
+    0x06: { name: 'MOD', gas: 5, in: 2, out: 1, cat: 'arithmetic' },
+    0x07: { name: 'SMOD', gas: 5, in: 2, out: 1, cat: 'arithmetic' },
+    0x08: { name: 'ADDMOD', gas: 8, in: 3, out: 1, cat: 'arithmetic' },
+    0x09: { name: 'MULMOD', gas: 8, in: 3, out: 1, cat: 'arithmetic' },
+    0x0a: { name: 'EXP', gas: 10, in: 2, out: 1, cat: 'arithmetic' },
+    0x0b: { name: 'SIGNEXTEND', gas: 5, in: 2, out: 1, cat: 'arithmetic' },
+
+    0x10: { name: 'LT', gas: 3, in: 2, out: 1, cat: 'comparison' },
+    0x11: { name: 'GT', gas: 3, in: 2, out: 1, cat: 'comparison' },
+    0x12: { name: 'SLT', gas: 3, in: 2, out: 1, cat: 'comparison' },
+    0x13: { name: 'SGT', gas: 3, in: 2, out: 1, cat: 'comparison' },
+    0x14: { name: 'EQ', gas: 3, in: 2, out: 1, cat: 'comparison' },
+    0x15: { name: 'ISZERO', gas: 3, in: 1, out: 1, cat: 'comparison' },
+    0x16: { name: 'AND', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+    0x17: { name: 'OR', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+    0x18: { name: 'XOR', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+    0x19: { name: 'NOT', gas: 3, in: 1, out: 1, cat: 'bitwise' },
+    0x1a: { name: 'BYTE', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+    0x1b: { name: 'SHL', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+    0x1c: { name: 'SHR', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+    0x1d: { name: 'SAR', gas: 3, in: 2, out: 1, cat: 'bitwise' },
+
+    0x20: { name: 'KECCAK256', gas: 30, in: 2, out: 1, cat: 'system' },
+
+    0x30: { name: 'ADDRESS', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x31: { name: 'BALANCE', gas: 100, in: 1, out: 1, cat: 'system' },
+    0x32: { name: 'ORIGIN', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x33: { name: 'CALLER', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x34: { name: 'CALLVALUE', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x35: { name: 'CALLDATALOAD', gas: 3, in: 1, out: 1, cat: 'system' },
+    0x36: { name: 'CALLDATASIZE', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x37: { name: 'CALLDATACOPY', gas: 3, in: 3, out: 0, cat: 'system' },
+    0x38: { name: 'CODESIZE', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x39: { name: 'CODECOPY', gas: 3, in: 3, out: 0, cat: 'system' },
+    0x3a: { name: 'GASPRICE', gas: 2, in: 0, out: 1, cat: 'system' },
+    0x3b: { name: 'EXTCODESIZE', gas: 100, in: 1, out: 1, cat: 'system' },
+    0x3c: { name: 'EXTCODECOPY', gas:
