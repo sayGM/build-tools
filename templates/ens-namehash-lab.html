@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENS Namehash Lab</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: #2d3748;
+        }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 { color: var(--accent); margin-bottom: 0.5rem; font-size: 1.5rem; }
+        p.subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; }
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+        }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        input[type="text"] {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus { border-color: var(--accent); }
+        .result-box {
+            background: #000;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            position: relative;
+        }
+        .result-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+        .result-value { font-family: monospace; word-break: break-all; color: var(--accent); font-size: 1.1rem; }
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--border);
+            border: none;
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+        .copy-btn:hover { background: var(--accent); color: #000; }
+        .steps { margin-top: 2rem; }
+        .step-item {
+            border-left: 2px solid var(--accent);
+            padding-left: 16px;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .step-item::before {
+            content: "";
+            position: absolute;
+            left: -5px;
+            top: 0;
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+        }
+        .step-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .step-data { font-family: monospace; font-size: 0.85rem; color: var(--muted); background: #070e0d; padding: 8px; border-radius: 4px; }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #1e3a3a;
+            color: var(--accent);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-bottom: 4px;
+        }
+        @media (max-width: 600px) {
+            .card { padding: 16px; }
+            h1 { font-size: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ENS Namehash Lab</h1>
+        <p class="subtitle">Recursive Keccak-256 hashing for Ethereum Name Service identifiers (EIP-137).</p>
+
+        <div class="card">
+            <div class="form-group">
+                <label for="ensInput">Domain Name</label>
+                <input type="text" id="ensInput" placeholder="e.g. vitalik.eth" spellcheck="false" autocomplete="off">
+            </div>
+
+            <div class="result-box">
+                <div class="result-label">Namehash (Final Node)</div>
+                <div id="finalHash" class="result-value">0x0000000000000000000000000000000000000000000000000000000000000000</div>
+                <button class="copy-btn" onclick="copyText('finalHash')">Copy</button>
+            </div>
+        </div>
+
+        <div id="derivationSteps" class="steps"></div>
+    </div>
+
+    <script>
+        /**
+         * Keccak-256 Tiny Implementation
+         */
+        const KECCAK_PADDING = [1, 26, 6, 22, 14, 30, 18, 2, 25, 10, 13, 19, 23, 15, 21, 7, 3, 11, 27, 31, 9, 17, 29, 5, 12, 20, 28, 4, 24, 8, 16, 0];
+        const RHO = [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14];
+        const PI = [0, 10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1];
+        const RC = [1n, 32898n, 9223372036854808714n, 9223372036859011072n, 32914n, 2147483649n, 9223372036859011201n, 9223372036854808713n, 138n, 136n, 2147516425n, 2147483658n, 2147516555n, 9223372036854775947n, 9223372036854808715n, 9223372036854808579n, 9223372036854808578n, 9223372036854775936n, 32778n, 9223372036859011082n, 9223372036859011201n, 9223372036854808704n, 2147483649n, 9223372036859011080n];
+
+        function keccak256(input) {
+            let buffer = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+            let state = new BigUint64Array(25);
+            let offset = 0;
+            let rate = 136;
+
+            while (offset < buffer.length) {
+                let blockSize = Math.min(buffer.length - offset, rate);
+                for (let i = 0; i < blockSize; i++) {
+                    state[Math.floor(i / 8)] ^= BigInt(buffer[offset + i]) << BigInt((i % 8) * 8);
+                }
+                offset += blockSize;
+                if (blockSize === rate) {
+                    permute(state);
+                }
+            }
+
+            state[Math.floor(offset % rate / 8)] ^= 0x01n << BigInt((offset % rate % 8) * 8);
+            state[Math.floor((rate - 1) / 8)] ^= 0x80n << BigInt(((rate - 1) % 8) * 8);
+            permute(state);
+
+            let res = new Uint8Array(32);
+            for (let i = 0; i < 32; i++) {
+                res[i] = Number((state[Math.floor(i / 8)] >> BigInt((i % 8) * 8)) & 0xFFn);
+            }
+            return '0x' + Array.from(res).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function permute(s) {
+            for (let r = 0; r < 24; r++) {
+                let C = new BigUint64Array(5);
+                for (let x = 0; x < 5; x++) C[x] = s[x] ^ s[x + 5] ^ s[x + 10] ^ s[x + 15] ^ s[x + 20];
+                for (let x = 0; x < 5; x++) {
+                    let d = C[(x + 4) % 5] ^ ((C[(x + 1) % 5] << 1n) | (C[(x + 1) % 5] >> 63n));
+                    for (let y = 0; y < 5; y++) s[x + y * 5] ^= d;
+                }
+                let prev = s[1];
+                for (let i = 0; i < 24; i++) {
+                    let j = PI[i];
+                    let temp = s[j];
+                    s[j] = (prev << BigInt(RHO[i])) | (prev >> BigInt(64 - RHO[i]));
+                    prev = temp;
+                }
+                for (let y = 0; y < 5; y++) {
+                    let r = new BigUint64Array(5);
+                    for (let x = 0; x < 5; x++) r[x] = s[x + y * 5];
+                    for (let x = 0; x < 5; x++) s[x + y * 5] = r[x] ^ ((~r[(x + 1) % 5]) & r[(x + 2) % 5]);
+                }
+                s[0] ^= RC[r];
+            }
+        }
+
+        /**
+         * Hex String to Uint8Array
+         */
+        function hexToBytes(hex) {
+            hex = hex.replace(/^0x/, '');
+            let bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+            }
+            return bytes;
+        }
+
+        /**
+         * ENS Namehash logic
+         */
+        function computeNamehash(name) {
+            let node = "0x0000000000000000000000000000000000000000000000000000000000000000";
+            const steps = [];
+            
+            if (!name || name.trim() === "") {
+                return { node, steps };
+            }
+
+            const labels = name.toLowerCase().split('.').reverse();
+            
+            labels.forEach(label => {
+                const parent = node;
+                const labelHash = keccak256(label);
+                
+                // Concat parent hash (32 bytes) and label hash (32 bytes)
+                const parentBytes = hexToBytes(parent);
+                const labelBytes = hexToBytes(labelHash);
+                const combined = new Uint8Array(64);
+                combined.set(parentBytes);
+                combined.set(labelBytes, 32);
+                
+                node = keccak256(combined);
+                
+                steps.push({
+                    label,
+                    labelHash,
+                    parent,
+                    result: node
+                });
+            });
+
+            return { node, steps };
+        }
+
+        const input = document.getElementById('ensInput');
+        const finalHashDisplay = document.getElementById('finalHash');
+        const stepsContainer = document.getElementById('derivationSteps');
+
+        function update() {
+            const val = input.value.trim();
+            const { node, steps } = computeNamehash(val);
+            
+            finalHashDisplay.textContent = node;
+            
+            stepsContainer.innerHTML = '';
+            if (steps.length > 0) {
+                steps.forEach((step, idx) => {
+                    const el = document.createElement('div');
+                    el.className = 'step-item';
+                    el.innerHTML = `
+                        <div class="step-title">Label: <span style="color:var(--accent)">${step.label}</span></div>
+                        <div class="badge">Labelhash</div>
+                        <div class="step-data">${step.labelHash}</div>
+                        <div style="margin-top:8px" class="badge">Recursive Hash Calculation</div>
+                        <div class="step-data">keccak256(${step.parent.substring(0, 10)}... + ${step.labelHash.substring(0, 10)}...)</div>
+                        <div style="margin-top:8px" class="badge">Node Hash Result</div>
+                        <div class="step-data" style="color:var(--text)">${step.result}</div>
+                    `;
+                    stepsContainer.appendChild(el);
+                });
+            }
+        }
+
+        function copyText(id) {
+            const text = document.getElementById(id).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector(`button[onclick="copyText('${id}')"]`);
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 1500);
+            });
+        }
+
+        input.addEventListener('input', update);
+        
+        // Initial example
+        input.value = "vitalik.eth";
+        update();
+    </script>
+</body>
+</html>
