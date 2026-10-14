@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solidity Decimal Scaler</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1e2f2c;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        header {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin: 0 0 8px 0;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            background: #080d0c;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            color: var(--text);
+            font-size: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .presets {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-preset {
+            background: #1a2e2a;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-preset:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .output-box {
+            background: #080d0c;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            word-break: break-all;
+            font-size: 0.95rem;
+            min-height: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .solidity-code {
+            background: #050807;
+            color: #10b981;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            border-left: 3px solid var(--accent);
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 20px;
+        }
+
+        @media (max-width: 480px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Solidity Decimal Scaler</h1>
+        <p class="subtitle">Precisely scale tokens between different decimal precisions</p>
+    </header>
+
+    <div class="card">
+        <div class="group">
+            <label>Amount (Human Readable)</label>
+            <input type="text" id="inputAmount" placeholder="e.g. 1.25" value="1.0">
+        </div>
+
+        <div class="grid">
+            <div class="group">
+                <label>From Decimals</label>
+                <input type="number" id="fromDec" value="18">
+                <div class="presets">
+                    <button class="btn-preset" onclick="setDec('from', 6)">USDC (6)</button>
+                    <button class="btn-preset" onclick="setDec('from', 8)">WBTC (8)</button>
+                    <button class="btn-preset" onclick="setDec('from', 18)">ETH (18)</button>
+                </div>
+            </div>
+            <div class="group">
+                <label>To Decimals</label>
+                <input type="number" id="toDec" value="6">
+                <div class="presets">
+                    <button class="btn-preset" onclick="setDec('to', 6)">USDC (6)</button>
+                    <button class="btn-preset" onclick="setDec('to', 18)">ETH (18)</button>
+                    <button class="btn-preset" onclick="setDec('to', 27)">RAY (27)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="group">
+            <label>Scaled Result (Human Readable)</label>
+            <div class="output-box" id="humanResult">0</div>
+        </div>
+        <div class="group">
+            <label>Scaled Result (Raw Integer / Wei)</label>
+            <div class="output-box" id="rawResult">0</div>
+        </div>
+        <div class="group">
+            <label>Solidity Logic Snippet</label>
+            <div class="solidity-code" id="soliditySnippet">
+                return _amount;
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Solidity developers tool for manual cross-token math logic.
+    </div>
+</div>
+
+<script>
+    const inputAmount = document.getElementById('inputAmount');
+    const fromDec = document.getElementById('fromDec');
+    const toDec = document.getElementById('toDec');
+    const humanResult = document.getElementById('humanResult');
+    const rawResult = document.getElementById('rawResult');
+    const soliditySnippet = document.getElementById('soliditySnippet');
+
+    function setDec(target, val) {
+        if (target === 'from') fromDec.value = val;
+        else toDec.value = val;
+        calculate();
+    }
+
+    function toBaseUnit(value, decimals) {
+        if (!value || isNaN(parseFloat(value))) return 0n;
+        let [whole, fraction] = value.split('.');
+        if (!fraction) fraction = "";
+        if (fraction.length > decimals) {
+            fraction = fraction.substring(0, decimals);
+        } else {
+            fraction = fraction.padEnd(decimals, '0');
+        }
+        try {
+            return BigInt(whole) * BigInt(10) ** BigInt(decimals) + BigInt(fraction);
+        } catch(e) {
+            return 0n;
+        }
+    }
+
+    function fromBaseUnit(value, decimals) {
+        let s = value.toString().padStart(decimals + 1, '0');
+        let decIndex = s.length - decimals;
+        let res = s.slice(0, decIndex) + "." + s.slice(decIndex);
+        // Clean up trailing zeros
+        res = res.replace(/\.?0+$/, "");
+        if (res.startsWith(".")) res = "0" + res;
+        return res === "" ? "0" : res;
+    }
+
+    function calculate() {
+        const valStr = inputAmount.value.trim();
+        const f = parseInt(fromDec.value) || 0;
+        const t = parseInt(toDec.value) || 0;
+
+        // 1. Get raw input in 'from' base units
+        const baseInput = toBaseUnit(valStr, f);
+        
+        // 2. Calculate scaled raw result
+        let scaledRaw;
+        if (t > f) {
+            scaledRaw = baseInput * (10n ** BigInt(t - f));
+        } else if (f > t) {
+            scaledRaw = baseInput / (10n ** BigInt(f - t));
+        } else {
+            scaledRaw = baseInput;
+        }
+
+        // 3. Display results
+        rawResult.innerText = scaledRaw.toString();
+        humanResult.innerText = fromBaseUnit(scaledRaw, t);
+
+        // 4. Generate Solidity Snippet
+        let snippet = "";
+        const diff = t - f;
+        if (diff > 0) {
+            snippet = `// Scaling UP from ${f} to ${t} decimals\nreturn _amount * 10**${diff};`;
+        } else if (diff < 0) {
+            snippet = `// Scaling DOWN from ${f} to ${t} decimals\nreturn _amount / 10**${Math.abs(diff)};`;
+        } else {
+            snippet = `// Decimals are identical\nreturn _amount;`;
+        }
+        soliditySnippet.innerText = snippet;
+    }
+
+    [inputAmount, fromDec, toDec].forEach(el => {
+        el.addEventListener('input', calculate);
+    });
+
+    // Initial run
+    calculate();
+</script>
+
+</body>
+</html>
