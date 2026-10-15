@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hex Data Anatomizer</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --border: #1e2e2b;
+            --highlight: rgba(20, 184, 166, 0.2);
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        
+        .container { width: 100%; max-width: 900px; }
+        header { margin-bottom: 24px; text-align: center; }
+        h1 { color: var(--accent); margin: 0; font-size: 1.5rem; letter-spacing: -0.025em; }
+        p { color: var(--muted); margin-top: 8px; font-size: 0.9rem; }
+
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.85rem; color: var(--accent); text-transform: uppercase; }
+        
+        textarea {
+            width: 100%;
+            background: #070c0b;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--accent);
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 100px;
+            outline: none;
+        }
+        textarea:focus { border-color: var(--accent); }
+
+        .controls { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        button {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button.secondary { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+
+        .anatomy-grid { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .slice-row {
+            display: grid;
+            grid-template-columns: 80px 80px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            background: #070c0b;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .slice-row input {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        .remove-btn { color: #f43f5e; cursor: pointer; padding: 5px; font-weight: bold; }
+
+        .visualizer {
+            margin-top: 20px;
+            background: #070c0b;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            font-size: 1rem;
+            position: relative;
+        }
+
+        .byte-unit {
+            display: inline-block;
+            padding: 0 1px;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .slice-highlight {
+            background: var(--highlight);
+            border-bottom: 2px solid var(--accent);
+            cursor: help;
+        }
+
+        .stats {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            display: flex;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .slice-row { grid-template-columns: 1fr 1fr; }
+            .slice-row input:nth-child(3) { grid-column: span 2; }
+            .slice-row .remove-btn { grid-column: span 2; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Hex Data Anatomizer</h1>
+            <p>Deconstruct, label, and map complex Ethereum hex blobs or byte arrays.</p>
+        </header>
+
+        <div class="card">
+            <label for="hexInput">Raw Hex Data</label>
+            <textarea id="hexInput" placeholder="0x60806040... or any hex string" spellcheck="false"></textarea>
+            <div class="stats">
+                <span id="charCount">Chars: 0</span>
+                <span id="byteCount">Bytes: 0</span>
+            </div>
+            
+            <div class="controls">
+                <button onclick="addSlice(0, 4, 'Selector')">+ Add Selector</button>
+                <button onclick="addSlice(null, 32, 'Word')">+ Add 32-byte Word</button>
+                <button class="secondary" onclick="clearSlices()">Clear All Slices</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <label>Slices & Map</label>
+            <div id="anatomyGrid" class="anatomy-grid">
+                <!-- Rows injected here -->
+            </div>
+            <button class="secondary" style="margin-top: 15px; width: 100%;" onclick="addBlankSlice()">+ Add Custom Slice</button>
+        </div>
+
+        <div class="card">
+            <label>Interactive Visualization</label>
+            <div id="visualizer" class="visualizer">
+                Enter hex data to begin...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const hexInput = document.getElementById('hexInput');
+        const anatomyGrid = document.getElementById('anatomyGrid');
+        const visualizer = document.getElementById('visualizer');
+        const charCount = document.getElementById('charCount');
+        const byteCount = document.getElementById('byteCount');
+
+        let slices = [];
+
+        function init() {
+            const saved = localStorage.getItem('hex-anatomizer-slices');
+            if (saved) {
+                slices = JSON.parse(saved);
+                renderSlices();
+            }
+            updateView();
+        }
+
+        function getCleanHex() {
+            return hexInput.value.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
+        }
+
+        function updateView() {
+            const hex = getCleanHex();
+            charCount.innerText = `Chars: ${hex.length}`;
+            byteCount.innerText = `Bytes: ${Math.floor(hex.length / 2)}`;
+            
+            renderVisualizer(hex);
+            save();
+        }
+
+        function addSlice(start, len, label) {
+            const hex = getCleanHex();
+            let startIdx = start;
+            if (startIdx === null) {
+                // Find next available start
+                if (slices.length === 0) startIdx = 0;
+                else {
+                    const last = slices[slices.length - 1];
+                    startIdx = parseInt(last.start) + parseInt(last.len);
+                }
+            }
+            slices.push({ start: startIdx, len: len, label: label });
+            renderSlices();
+            updateView();
+        }
+
+        function addBlankSlice() {
+            addSlice(0, 1, 'New Slice');
+        }
+
+        function removeSlice(index) {
+            slices.splice(index, 1);
+            renderSlices();
+            updateView();
+        }
+
+        function clearSlices() {
+            slices = [];
+            renderSlices();
+            updateView();
+        }
+
+        function updateSlice(index, field, value) {
+            slices[index][field] = value;
+            updateView();
+        }
+
+        function renderSlices() {
+            anatomyGrid.innerHTML = '';
+            slices.forEach((slice, i) => {
+                const row = document.createElement('div');
+                row.className = 'slice-row';
+                row.innerHTML = `
+                    <input type="number" value="${slice.start}" placeholder="Start" oninput="updateSlice(${i}, 'start', this.value)">
+                    <input type="number" value="${slice.len}" placeholder="Len" oninput="updateSlice(${i}, 'len', this.value)">
+                    <input type="text" value="${slice.label}" placeholder="Label" oninput="updateSlice(${i}, 'label', this.value)">
+                    <span class="remove-btn" onclick="removeSlice(${i})">✕</span>
+                `;
+                anatomyGrid.appendChild(row);
+            });
+        }
+
+        function renderVisualizer(hex) {
+            if (!hex) {
+                visualizer.innerHTML = '<span style="color:var(--muted)">Waiting for input...</span>';
+                return;
+            }
+
+            const bytes = [];
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes.push(hex.substr(i, 2));
+            }
+
+            visualizer.innerHTML = '';
+            
+            bytes.forEach((byte, byteIdx) => {
+                const span = document.createElement('span');
+                span.className = 'byte-unit';
+                span.innerText = byte;
+                
+                // Check if this byte belongs to any slice
+                const activeSlices = slices.filter(s => {
+                    const start = parseInt(s.start);
+                    const len = parseInt(s.len);
+                    return byteIdx >= start && byteIdx < (start + len);
+                });
+
+                if (activeSlices.length > 0) {
+                    span.classList.add('slice-highlight');
+                    span.title = activeSlices.map(s => s.label).join(', ');
+                }
+
+                visualizer.appendChild(span);
+                
+                // Add spacing for readability every 32 bytes
+                if ((byteIdx + 1) % 32 === 0) {
+                    visualizer.appendChild(document.createElement('br'));
+                } else if ((byteIdx + 1) % 4 === 0) {
+                    const space = document.createTextNode(' ');
+                    visualizer.appendChild(space);
+                }
+            });
+        }
+
+        function save() {
+            localStorage.setItem('hex-anatomizer-slices', JSON.stringify(slices));
+        }
+
+        hexInput.addEventListener('input', updateView);
+
+        // Pre-fill with a common ERC20 transfer example if empty
+        if (!hexInput.value) {
+            hexInput.value = "0xa9059cbb00000000000000000000000071c7656ec7ab88b098defb751b7401b5f6d8976f0000000000000000000000000000000000000000000000000de0b6b3a7640000";
+            if (slices.length === 0) {
+                slices = [
+                    { start: 0, len: 4, label: 'Method ID' },
+                    { start: 4, len: 32, label: 'To Address' },
+                    { start: 36, len: 32, label: 'Amount (Uint256)' }
+                ];
+                renderSlices();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
