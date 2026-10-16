@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solidity Packer & Hash Visualizer</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: #2dd4bf33;
+            --error: #f43f5e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        p.subtitle {
+            color: var(--muted);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .row-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .data-row {
+            display: grid;
+            grid-template-columns: 140px 1fr 40px;
+            gap: 10px;
+            align-items: start;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        select, input {
+            background: #060a09;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            width: 100%;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn {
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 8px 16px;
+            transition: all 0.2s;
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-accent:hover {
+            opacity: 0.9;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-outline:hover {
+            background: rgba(20, 184, 166, 0.1);
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--muted);
+            font-size: 18px;
+            padding: 4px;
+        }
+
+        .btn-danger:hover {
+            color: var(--error);
+        }
+
+        .output-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .output-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .output-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .output-box {
+            background: #060a09;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            word-break: break-all;
+            white-space: pre-wrap;
+            min-height: 44px;
+            position: relative;
+        }
+
+        .copy-hint {
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            font-size: 10px;
+            color: var(--muted);
+            pointer-events: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            background: #1e293b;
+            color: var(--muted);
+            margin-right: 4px;
+        }
+
+        .type-info {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .data-row {
+                grid-template-columns: 1fr 40px;
+            }
+            .data-row select {
+                grid-column: span 2;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Solidity Packer & Hash Visualizer</h1>
+        <p class="subtitle">Simulate abi.encodePacked() and Keccak256 hashing</p>
+    </header>
+
+    <div class="card">
+        <div id="rowList" class="row-list">
+            <!-- Rows injected here -->
+        </div>
+        <button class="btn btn-outline" onclick="addRow()">+ Add Parameter</button>
+    </div>
+
+    <div class="card output-section">
+        <div class="output-group">
+            <span class="output-label">Packed Hex Data (abi.encodePacked)</span>
+            <div class="output-box" id="packedOutput" onclick="copyToClipboard('packedOutput')"></div>
+        </div>
+        <div class="output-group">
+            <span class="output-label">Keccak256 Hash</span>
+            <div class="output-box" id="hashOutput" onclick="copyToClipboard('hashOutput')"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Keccak256 Implementation (Internal) ---
+    const Keccak256 = (function() {
+        const RC = [
+            0x0000000000000001n, 0x0000000000008082n, 0x800000000000808an, 0x8000000080008000n,
+            0x000000000000808bn, 0x0000000080000001n, 0x8000000080008081n, 0x8000000000008009n,
+            0x000000000000008an, 0x0000000000000088n, 0x0000000080008009n, 0x000000008000000an,
+            0x0000000080008081n, 0x8000000000008003n, 0x8000000000008002n, 0x8000000000000080n,
+            0x000000000000800an, 0x800000000000000an, 0x8000000080008081n, 0x8000000000008080n,
+            0x0000000080000001n, 0x8000000000008008n, 0x8000000080000001n, 0x8000000080008008n
+        ];
+
+        const r = [
+            0,  1, 62, 28, 27, 36, 44,  6, 55, 20,  3, 10,
+            43, 25, 39, 41, 45, 15, 21,  8, 18,  2, 61, 56, 14
+        ];
+
+        const rot = (x, n) => (x << n) | (x >> (64n - n));
+
+        function keccak_f(state) {
+            for (let i = 0; i < 24; i++) {
+                let C = [];
+                for (let x = 0; x < 5; x++) C[x] = state[x] ^ state[x+5] ^ state[x+10] ^ state[x+15] ^ state[x+20];
+                for (let x = 0; x < 5; x++) {
+                    let D = C[(x+4)%5] ^ rot(C[(x+1)%5], 1n);
+                    for (let y = 0; y < 5; y++) state[x + y*5] ^= D;
+                }
+                let nextState = new BigUint64Array(25);
+                for (let x = 0; x < 5; x++) {
+                    for (let y = 0; y < 5; y++) {
+                        nextState[y + ((2*x + 3*y) % 5) * 5] = rot(state[x + y*5], BigInt(r[x + y*5]));
+                    }
+                }
+                state = nextState;
+                for (let y = 0; y < 5; y++) {
+                    let row = [];
+                    for (let x = 0; x < 5; x++) row[x] = state[x + y*5];
+                    for (let x = 0; x < 5; x++) state[x + y*5] = row[x] ^ ((~row[(x+1)%5]) & row[(x+2)%5]);
+                }
+                state[0] ^= RC[i];
+            }
+            return state;
+        }
+
+        return function hash(hex) {
+            const bytes = new Uint8Array(hex.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
+            const rate = 136; // for 256 bit hash
+            const state = new BigUint64Array(25);
+            
+            let padded = new Uint8Array(Math.ceil((bytes.length + 1) / rate) * rate);
+            padded.set(bytes);
+            padded[bytes.length] = 0x01;
+            padded[padded.length - 1] |= 0x80;
+
+            for (let i = 0; i < padded.length; i += rate) {
+                for (let j = 0; j < rate; j++) {
+                    const byteIdx = i + j;
+                    const laneIdx = Math.floor(j / 8);
+                    const shift = BigInt((j % 8) * 8);
+                    state[laneIdx] ^= BigInt(padded[byteIdx]) << shift;
+                }
+                keccak_f(state);
+            }
+
+            let result = "";
+            for (let i = 0; i < 4; i++) {
+                let s = state[i].toString(16).padStart(16, '0');
+                // reverse byte order in lane (little endian state)
+                result += s.match(/../g).reverse().join('');
+            }
+            return "0x" + result;
+        };
+    })();
+
+    // --- App Logic ---
+    let rows = [
+        { id: Date.now(), type: 'address', value: '0x0000000000000000000000000000000000000000' },
+        { id: Date.now() + 1, type: 'uint256', value: '1' }
+    ];
+
+    function addRow() {
+        rows.push({ id: Date.now(), type: 'uint256', value: '' });
+        render();
+    }
+
+    function removeRow(id) {
+        if (rows.length <= 1) return;
+        rows = rows.filter(r => r.id !== id);
+        render();
+    }
+
+    function updateRow(id, field, value) {
+        const row = rows.find(r => r.id === id);
+        if (row) {
+            row[field] = value;
+            calculate();
+        }
+    }
+
+    function render() {
+        const container = document.getElementById('rowList');
+        container.innerHTML = '';
+        rows.forEach(row => {
+            const div = document.createElement('div');
+            div.className = 'data-row';
+            div.innerHTML = `
+                <select onchange="updateRow(${row.id}, 'type', this.value)">
+                    <option value="uint256" ${row.type === 'uint256' ? 'selected' : ''}>uint256</option>
+                    <option value="address" ${row.type === 'address' ? 'selected' : ''}>address</option>
+                    <option value="bool" ${row.type === 'bool' ? 'selected' : ''}>bool</option>
+                    <option value="bytes32" ${row.type === 'bytes32' ? 'selected' : ''}>bytes32</option>
+                    <option value="string" ${row.type === 'string' ? 'selected' : ''}>string</option>
+                    <option value="bytes" ${row.type === 'bytes' ? 'selected' : ''}>bytes (hex)</option>
+                </select>
+                <div>
+                    <input type="text" placeholder="Value" value="${row.value}" oninput="updateRow(${row.id}, 'value', this.value)">
+                    <div class="type-info">${getTypeInfo(row.type)}</div>
+                </div>
+                <button class="btn btn-danger" onclick="removeRow(${row.id})">×</button>
+            `;
+            container.appendChild(div);
+        });
+        calculate();
+    }
+
+    function getTypeInfo(type) {
+        switch(type) {
+            case 'uint256': return 'Dec or Hex (0x...)';
+            case 'address': return '20-byte hex';
+            case 'bool': return 'true / false / 1 / 0';
+            case 'bytes32': return '32-byte hex';
+            case 'string': return 'Raw UTF-8 text';
+            case 'bytes': return 'Raw hex data';
+            default: return '';
+        }
+    }
+
+    function calculate() {
+        let packedHex = "";
+        const packedOutput = document.getElementById('packedOutput');
+        const hashOutput = document.getElementById('hashOutput');
+
+        try {
+            rows.forEach(row => {
+                let val = row.value.trim();
+                switch(row.type) {
+                    case 'uint256':
+                        if (val === '') val = '0';
+                        let bigIntVal = val.startsWith('0x') ? BigInt(val) : BigInt(val);
+                        packedHex += bigIntVal.toString(16).padStart(64, '0');
+                        break;
+                    case 'address':
+                        if (val === '') val = '0x0000000000000000000000000000000000000000';
+                        packedHex += val.replace('0x', '').toLowerCase().padStart(40, '0');
+                        break;
+                    case 'bool':
+                        const isTrue = val.toLowerCase() === 'true' || val === '1';
+                        packedHex += isTrue ? '01' : '00';
+                        break;
+                    case 'bytes32':
+                        let b32 = val.replace('0x', '').toLowerCase();
+                        packedHex += b32.padEnd(64, '0').slice(0, 64);
+                        break;
+                    case 'string':
+                        const encoder = new TextEncoder();
+                        const bytes = encoder.encode(val);
+                        packedHex += Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                        break;
+                    case 'bytes':
+                        packedHex += val.replace('0x', '').toLowerCase();
+                        break;
+                }
+            });
+
+            if (packedHex.length % 2 !== 0) packedHex = "0" + packedHex;
+
+            packedOutput.innerText = "0x" + packedHex;
+            hashOutput.innerText = Keccak256(packedHex);
+            
+            packedOutput.style.color = "var(--text)";
+        } catch (e) {
+            packedOutput.innerText = "Error: Invalid Input - " + e.message;
+            packedOutput.style.color = "var(--error)";
+            hashOutput.innerText = "---";
+        }
+    }
+
+    function copyToClipboard(id) {
+        const text = document.getElementById(id).innerText;
+        if (!text || text === "---" || text.startsWith("Error")) return;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            const el = document.getElementById(id);
+            const originalColor = el.style.borderColor;
+            el.style.borderColor = "var(--accent)";
+            setTimeout(() => el.style.borderColor = originalColor, 500);
+        });
+    }
+
+    // Initialize
+    render();
+</script>
+
+</body>
+</html>
