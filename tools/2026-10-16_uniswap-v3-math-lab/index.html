@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uniswap V3 Math Lab</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    body {
+      background-color: #0b1211;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    header {
+      text-align: left;
+      border-bottom: 1px solid #1c2e2a;
+      padding-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-block;
+      align-self: flex-start;
+      background: rgba(20, 184, 166, 0.15);
+      color: #14B8A6;
+      border: 1px solid rgba(20, 184, 166, 0.3);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    header p {
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .presets-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .presets-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .btn-preset {
+      background: #111c1a;
+      border: 1px solid #1c2e2a;
+      color: #cbd5e1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-preset:hover {
+      border-color: #14B8A6;
+      color: #14B8A6;
+    }
+    .card {
+      background: #111c1a;
+      border: 1px solid #1c2e2a;
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #14B8A6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-title span.sub {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 400;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+    }
+    input, select {
+      background: #0b1211;
+      border: 1px solid #1c2e2a;
+      color: #f1f5f9;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+    input:focus, select:focus {
+      border-color: #14B8A6;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .value-box {
+      background: #0b1211;
+      border: 1px solid #1c2e2a;
+      border-radius: 6px;
+      padding: 10px 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .value-box .val-title {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .value-box .val-content {
+      font-size: 13px;
+      word-break: break-all;
+      color: #f8fafc;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #111c1a;
+      border: 1px solid #1c2e2a;
+      color: #94a3b8;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .copy-btn:hover {
+      border-color: #14B8A6;
+      color: #14B8A6;
+    }
+    .btn-action {
+      background: #14B8A6;
+      border: none;
+      color: #0b1211;
+      font-weight: 600;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn-action:hover {
+      background: #2dd4bf;
+    }
+    .btn-secondary {
+      background: #111c1a;
+      border: 1px solid #1c2e2a;
+      color: #cbd5e1;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-secondary:hover {
+      border-color: #14B8A6;
+      color: #14B8A6;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #94a3b8;
+      border-bottom: 1px dashed #1c2e2a;
+      padding-bottom: 6px;
+    }
+    .info-row span.val {
+      color: #f1f5f9;
+      font-weight: 500;
+    }
+    .code-snippet {
+      background: #070c0b;
+      border: 1px solid #1c2e2a;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      color: #a7f3d0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .error-msg {
+      color: #f87171;
+      font-size: 12px;
+      display: none;
+    }
+    .tick-indicator {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tick-valid {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+    }
+    .tick-invalid {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #475569;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">EVM / DeFi Protocol Utility</div>
+      <h1>Uniswap V3 Math Lab</h1>
+      <p>Instant bidirectional conversions between human price, pool ticks ($1.0001^{\text{tick}}$), and Q64.96 <code class="mono">sqrtPriceX96</code> for EVM smart contracts.</p>
+    </header>
+
+    <!-- Presets -->
+    <div class="presets-bar">
+      <span class="presets-label">Quick Presets:</span>
+      <button class="btn-preset" onclick="loadPreset('USDC', 6, 'WETH', 18, 3000, 3100)">USDC / ETH (0.3%)</button>
+      <button class="btn-preset" onclick="loadPreset('WBTC', 8, 'WETH', 18, 500, 18.5)">WBTC / ETH (0.05%)</button>
+      <button class="btn-preset" onclick="loadPreset('USDC', 6, 'USDT', 6, 100, 1.0)">USDC / USDT (0.01%)</button>
+      <button class="btn-preset" onclick="loadPreset('WETH', 18, 'DAI', 18, 3000, 3100, true)">WETH / DAI (0.3%)</button>
+    </div>
+
+    <!-- Pool Configuration -->
+    <div class="card">
+      <div class="card-title">
+        <span>1. Pool Tokens & Fee Tier</span>
+        <span class="sub">Configures token order & tick spacing</span>
+      </div>
+      <div class="grid-3">
+        <div class="input-group">
+          <label>Token 0 (Symbol / Decimals)</label>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="t0Symbol" value="USDC" style="flex:2;" oninput="recalcFromPrice()">
+            <input type="number" id="t0Decimals" value="6" min="0" max="36" style="flex:1;" oninput="recalcFromPrice()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Token 1 (Symbol / Decimals)</label>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="t1Symbol" value="WETH" style="flex:2;" oninput="recalcFromPrice()">
+            <input type="number" id="t1Decimals" value="18" min="0" max="36" style="flex:1;" oninput="recalcFromPrice()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Fee Tier / Tick Spacing</label>
+          <select id="feeTier" onchange="onFeeTierChange()">
+            <option value="100:1">0.01% (Tick Spacing: 1)</option>
+            <option value="500:10">0.05% (Tick Spacing: 10)</option>
+            <option value="3000:60" selected>0.30% (Tick Spacing: 60)</option>
+            <option value="10000:200">1.00% (Tick Spacing: 200)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Core Interactive Conversion Engine -->
+    <div class="card">
+      <div class="card-title">
+        <span>2. Core Price & Tick Converter</span>
+        <span class="sub">Edit any input to recalculate the others</span>
+      </div>
+
+      <div class="grid-2">
+        <!-- Human Price Token1 per Token0 -->
+        <div class="input-group">
+          <label id="lblP0">Price (<span id="txtT0Symbol1">USDC</span> in <span id="txtT1Symbol1">WETH</span>)</label>
+          <input type="text" class="mono" id="inputPrice0" placeholder="e.g. 0.0003225" oninput="onInputPrice0()">
+          <span style="font-size:11px; color:#64748b;">1 <span id="txtT0Name">USDC</span> = <span id="dispInvPrice" class="mono">...</span> <span id="txtT1Name">WETH</span></span>
+        </div>
+
+        <!-- Human Price Token0 per Token1 (Inverted) -->
+        <div class="input-group">
+          <label id="lblP1">Price (<span id="txtT1Symbol2">WETH</span> in <span id="txtT0Symbol2">USDC</span>)</label>
+          <input type="text" class="mono" id="inputPrice1" placeholder="e.g. 3100.0" oninput="onInputPrice1()">
+          <span style="font-size:11px; color:#64748b;">1 <span id="txtT1Name2">WETH</span> = <span id="dispPrice" class="mono">...</span> <span id="txtT0Name2">USDC</span></span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Tick Input -->
+        <div class="input-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label>Pool Tick Index (<code class="mono">int24</code>)</label>
+            <span id="tickValidityBadge" class="tick-indicator tick-valid">Aligned</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="number" class="mono" id="inputTick" placeholder="e.g. 196580" oninput="onInputTick()">
+            <button class="btn-secondary" onclick="snapCurrentTick()" title="Snap to nearest valid tick spacing">Snap</button>
+          </div>
+          <div style="font-size:11px; color:#64748b; display:flex; justify-content:space-between;">
+            <span>Min: -887272</span>
+            <span>Max: 887272</span>
+          </div>
+        </div>
+
+        <!-- SqrtPriceX96 Input -->
+        <div class="input-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label><code class="mono">sqrtPriceX96</code> (Decimal / Hex)</label>
+          </div>
+          <input type="text" class="mono" id="inputSqrtPriceX96" placeholder="Decimal or 0x Hex" oninput="onInputSqrtPriceX96()">
+          <span style="font-size:11px; color:#64748b;">Accepts uint160 decimal or 0x prefix hex</span>
+        </div>
+      </div>
+
+      <div id="calcError" class="error-msg">Invalid numerical inputs. Please verify format.</div>
+
+      <!-- Quick Details & EVM calldata values -->
+      <div class="grid-2">
+        <div class="value-box">
+          <button class="copy-btn" onclick="copyValue('valSqrtDec')">Copy Dec</button>
+          <span class="val-title">uint160 sqrtPriceX96 (Decimal)</span>
+          <span class="val-content mono" id="valSqrtDec">-</span>
+        </div>
+        <div class="value-box">
+          <button class="copy-btn" onclick="copyValue('valSqrtHex')">Copy Hex</button>
+          <span class="val-title">uint160 sqrtPriceX96 (Hex)</span>
+          <span class="val-
