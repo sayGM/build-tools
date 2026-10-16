@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solidity Bitmask Calculator</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: #2dd4bf33;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 { color: var(--accent); font-size: 1.5rem; margin-bottom: 0.5rem; }
+        p.subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        label { display: block; font-size: 0.8rem; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; font-weight: bold; }
+
+        .role-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #1e2927;
+        }
+
+        input, select {
+            background: #0b1211;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        input:focus { border-color: var(--accent); }
+
+        .btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+        .btn-danger { background: #ef4444; color: white; }
+
+        .result-box {
+            background: #0b1211;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            word-break: break-all;
+            margin-top: 10px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .code-block {
+            background: #050807;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre;
+            color: #14B8A6;
+        }
+
+        .checkbox-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-item input {
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Solidity Bitmask Calculator</h1>
+    <p class="subtitle">Design gas-efficient access control systems using bitwise flags.</p>
+
+    <div class="card">
+        <div class="flex-between" style="margin-bottom: 15px;">
+            <label>Defined Roles (max 256)</label>
+            <button class="btn btn-sm" onclick="addRole()">+ Add Role</button>
+        </div>
+        <div id="roleList">
+            <!-- Roles added here -->
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <label>Combine Roles</label>
+            <div id="combineList" class="checkbox-list">
+                <!-- Checkboxes added here -->
+            </div>
+            <div style="margin-top: 20px;">
+                <label>Resulting Mask (Hex)</label>
+                <div id="maskHex" class="result-box">0x0</div>
+                <label style="margin-top:10px">Resulting Mask (Dec)</label>
+                <div id="maskDec" class="result-box">0</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <label>Solidity Snippet</label>
+            <div id="solidityOutput" class="code-block"></div>
+            <button class="btn btn-sm" style="margin-top: 10px; width: 100%;" onclick="copySnippet()">Copy Snippet</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let roles = [
+        { name: 'ADMIN', bit: 0 },
+        { name: 'EDITOR', bit: 1 },
+        { name: 'USER', bit: 2 }
+    ];
+
+    function render() {
+        const roleList = document.getElementById('roleList');
+        const combineList = document.getElementById('combineList');
+        
+        roleList.innerHTML = '';
+        combineList.innerHTML = '';
+
+        roles.forEach((role, index) => {
+            // Render Role Editor
+            const row = document.createElement('div');
+            row.className = 'role-row';
+            row.innerHTML = `
+                <input type="text" value="${role.name}" placeholder="Role Name" oninput="updateRole(${index}, 'name', this.value)" style="flex: 2">
+                <input type="number" value="${role.bit}" min="0" max="255" oninput="updateRole(${index}, 'bit', this.value)" style="flex: 1">
+                <button class="btn btn-sm btn-danger" onclick="removeRole(${index})">×</button>
+            `;
+            roleList.appendChild(row);
+
+            // Render Combiner
+            const checkItem = document.createElement('label');
+            checkItem.className = 'checkbox-item';
+            checkItem.innerHTML = `
+                <input type="checkbox" data-bit="${role.bit}" onchange="calculateMask()">
+                <span>${role.name || 'Unnamed'} (Bit ${role.bit})</span>
+            `;
+            combineList.appendChild(checkItem);
+        });
+
+        calculateMask();
+        updateSnippet();
+    }
+
+    function addRole() {
+        const maxBit = roles.length > 0 ? Math.max(...roles.map(r => r.bit)) : -1;
+        roles.push({ name: 'NEW_ROLE', bit: maxBit + 1 });
+        render();
+    }
+
+    function removeRole(index) {
+        roles.splice(index, 1);
+        render();
+    }
+
+    function updateRole(index, field, value) {
+        if (field === 'bit') {
+            roles[index].bit = parseInt(value) || 0;
+        } else {
+            roles[index].name = value.toUpperCase().replace(/\s+/g, '_');
+        }
+        render();
+    }
+
+    function calculateMask() {
+        const checks = document.querySelectorAll('#combineList input[type="checkbox"]');
+        let total = BigInt(0);
+        checks.forEach(check => {
+            if (check.checked) {
+                total |= (BigInt(1) << BigInt(check.getAttribute('data-bit')));
+            }
+        });
+
+        document.getElementById('maskHex').innerText = '0x' + total.toString(16);
+        document.getElementById('maskDec').innerText = total.toString();
+    }
+
+    function updateSnippet() {
+        let snippet = `// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract AccessControl {\n    uint256 public userRoles;\n\n`;
+        
+        roles.forEach(role => {
+            const val = BigInt(1) << BigInt(role.bit);
+            snippet += `    uint256 public constant ${role.name || 'ROLE'} = 0x${val.toString(16)};\n`;
+        });
+
+        snippet += `\n    function hasRole(uint256 _role) public view returns (bool) {\n`;
+        snippet += `        return (userRoles & _role) > 0;\n`;
+        snippet += `    }\n\n`;
+        snippet += `    function addRole(uint256 _role) public {\n`;
+        snippet += `        userRoles |= _role;\n`;
+        snippet += `    }\n`;
+        snippet += `}`;
+
+        document.getElementById('solidityOutput').innerText = snippet;
+    }
+
+    function copySnippet() {
+        const text = document.getElementById('solidityOutput').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.querySelector('button[onclick="copySnippet()"]');
+            const original = btn.innerText;
+            btn.innerText = 'Copied!';
+            setTimeout(() => btn.innerText = original, 2000);
+        });
+    }
+
+    // Initial render
+    render();
+</script>
+
+</body>
+</html>
