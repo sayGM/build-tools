@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EIP-1559 Gas Strategy Forge</title>
+    <style>
+        :root {
+            --bg-color: #0b1211;
+            --card-color: #111c1a;
+            --accent-teal: #14B8A6;
+            --accent-dim: #0d7a6e;
+            --text-main: #e2e8f0;
+            --text-dim: #94a3b8;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --burn: #ff4d4d;
+            --tip: #14B8A6;
+            --savings: #4ade80;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-color);
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: var(--accent-teal);
+            margin: 0 0 8px 0;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        p.description {
+            color: var(--text-dim);
+            margin: 0 0 20px 0;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        input {
+            background: #070c0b;
+            border: 1px solid #2d3748;
+            border-radius: 6px;
+            padding: 10px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent-teal);
+        }
+
+        .visualizer {
+            margin-top: 24px;
+        }
+
+        .bar-container {
+            height: 40px;
+            width: 100%;
+            background: #2d3748;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            margin-bottom: 12px;
+        }
+
+        .bar-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            transition: width 0.3s ease;
+        }
+
+        .segment-burn { background-color: var(--burn); }
+        .segment-tip { background-color: var(--tip); }
+        .segment-savings { background-color: #334155; border-left: 1px dashed #475569; }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        .results {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #2d3748;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent-teal);
+        }
+
+        .status-msg {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .status-error { background: rgba(239, 68, 68, 0.15); color: #f87171; display: block; border: 1px solid #ef4444; }
+        .status-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: block; border: 1px solid #f59e0b; }
+
+        .presets {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .preset-btn {
+            background: #1f2937;
+            border: none;
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .preset-btn:hover { background: #374151; }
+
+        footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1>Gas Strategy Forge</h1>
+        <p class="description">Calculate and visualize EIP-1559 Ethereum transaction pricing, tips, and potential refunds.</p>
+
+        <div class="presets">
+            <button class="preset-btn" onclick="setPreset(20, 40, 1.5)">Standard Market</button>
+            <button class="preset-btn" onclick="setPreset(100, 250, 2)">High Congestion</button>
+            <button class="preset-btn" onclick="setPreset(50, 51, 2)">Aggressive Min</button>
+        </div>
+
+        <div class="grid">
+            <div class="input-group">
+                <label>Current Base Fee (Gwei)</label>
+                <input type="number" id="baseFee" value="30" step="0.1" oninput="calculate()">
+            </div>
+            <div class="input-group">
+                <label>Gas Limit (Units)</label>
+                <input type="number" id="gasLimit" value="21000" step="1" oninput="calculate()">
+            </div>
+            <div class="input-group">
+                <label>Max Fee Per Gas (Gwei)</label>
+                <input type="number" id="maxFee" value="50" step="0.1" oninput="calculate()">
+            </div>
+            <div class="input-group">
+                <label>Max Priority Fee (Gwei)</label>
+                <input type="number" id="priorityFee" value="2" step="0.1" oninput="calculate()">
+            </div>
+        </div>
+
+        <div id="statusBox" class="status-msg"></div>
+
+        <div class="visualizer">
+            <div class="bar-container">
+                <div id="barBurn" class="bar-segment segment-burn" title="Burned"></div>
+                <div id="barTip" class="bar-segment segment-tip" title="Tip"></div>
+                <div id="barSavings" class="bar-segment segment-savings" title="Refunded"></div>
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="dot segment-burn"></div> Burned (Base)</div>
+                <div class="legend-item"><div class="dot segment-tip"></div> Miner Tip</div>
+                <div class="legend-item"><div class="dot segment-savings"></div> Potential Refund</div>
+            </div>
+        </div>
+
+        <div class="results">
+            <div class="stat-box">
+                <span class="stat-label">Effective Gas Price</span>
+                <span id="resEffectivePrice" class="stat-value">0 Gwei</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Total Tx Cost</span>
+                <span id="resTotalEth" class="stat-value">0 ETH</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Total Miner Tip</span>
+                <span id="resMinerTip" class="stat-value">0 ETH</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Max Burned ETH</span>
+                <span id="resBurnedEth" class="stat-value">0 ETH</span>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        No network requests. All calculations done locally.
+    </footer>
+</div>
+
+<script>
+    function setPreset(base, max, tip) {
+        document.getElementById('baseFee').value = base;
+        document.getElementById('maxFee').value = max;
+        document.getElementById('priorityFee').value = tip;
+        calculate();
+    }
+
+    function calculate() {
+        const baseFee = parseFloat(document.getElementById('baseFee').value) || 0;
+        const maxFee = parseFloat(document.getElementById('maxFee').value) || 0;
+        const priorityFee = parseFloat(document.getElementById('priorityFee').value) || 0;
+        const gasLimit = parseFloat(document.getElementById('gasLimit').value) || 0;
+
+        const statusBox = document.getElementById('statusBox');
+        statusBox.className = 'status-msg';
+        statusBox.innerHTML = '';
+
+        // Validation
+        if (maxFee < baseFee) {
+            statusBox.classList.add('status-error');
+            statusBox.innerHTML = '<strong>Invalid:</strong> Max Fee is lower than Base Fee. Tx will be rejected.';
+        } else if (maxFee < priorityFee) {
+            statusBox.classList.add('status-error');
+            statusBox.innerHTML = '<strong>Invalid:</strong> Max Fee cannot be lower than Priority Fee.';
+        } else if (maxFee < (baseFee + priorityFee)) {
+            statusBox.classList.add('status-warning');
+            statusBox.innerHTML = '<strong>Warning:</strong> Priority fee will be reduced to ' + (maxFee - baseFee).toFixed(2) + ' Gwei to fit Max Fee.';
+        }
+
+        // Calculations
+        // Effective Priority Fee = min(Max Priority Fee, Max Fee - Base Fee)
+        const effectiveTip = Math.max(0, Math.min(priorityFee, maxFee - baseFee));
+        const effectivePrice = baseFee + effectiveTip;
+        const totalCostGwei = effectivePrice * gasLimit;
+        const totalCostEth = totalCostGwei / 1e9;
+        const tipEth = (effectiveTip * gasLimit) / 1e9;
+        const burnEth = (baseFee * gasLimit) / 1e9;
+        
+        // Savings = (Max Fee - Effective Fee)
+        const savingsGwei = Math.max(0, maxFee - effectivePrice);
+
+        // Update Text
+        document.getElementById('resEffectivePrice').innerText = effectivePrice.toFixed(2) + ' Gwei';
+        document.getElementById('resTotalEth').innerText = totalCostEth.toFixed(6) + ' ETH';
+        document.getElementById('resMinerTip').innerText = tipEth.toFixed(6) + ' ETH';
+        document.getElementById('resBurnedEth').innerText = burnEth.toFixed(6) + ' ETH';
+
+        // Update Bar
+        const totalRange = Math.max(maxFee, baseFee + effectiveTip);
+        const burnWidth = (baseFee / totalRange) * 100;
+        const tipWidth = (effectiveTip / totalRange) * 100;
+        const savingsWidth = (savingsGwei / totalRange) * 100;
+
+        const bBurn = document.getElementById('barBurn');
+        const bTip = document.getElementById('barTip');
+        const bSavings = document.getElementById('barSavings');
+
+        bBurn.style.width = burnWidth + '%';
+        bBurn.innerText = burnWidth > 15 ? 'Burn' : '';
+        
+        bTip.style.width = tipWidth + '%';
+        bTip.innerText = tipWidth > 15 ? 'Tip' : '';
+        
+        bSavings.style.width = savingsWidth + '%';
+        bSavings.innerText = savingsWidth > 15 ? 'Refund' : '';
+    }
+
+    // Initial run
+    calculate();
+</script>
+
+</body>
+</html>
