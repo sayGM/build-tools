@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>L2 Calldata Gas & Compression Analyzer</title>
+  <style>
+    :root {
+      --bg: #0b1211;
+      --card: #111c1a;
+      --card-inner: #162422;
+      --border: #1e3330;
+      --border-focus: #14B8A6;
+      --accent: #14B8A6;
+      --accent-dim: rgba(20, 184, 166, 0.15);
+      --accent-hover: #0d9488;
+      --text: #e5e7eb;
+      --text-muted: #8b9f9b;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 1.25rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(20, 184, 166, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    header p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .card {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+    }
+
+    @media (max-width: 820px) {
+      .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      background: #090e0d;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    textarea:focus, input:focus, select:focus {
+      border-color: var(--border-focus);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+      word-break: break-all;
+    }
+
+    .preset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.6rem;
+      align-items: center;
+    }
+
+    .preset-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-right: 0.2rem;
+    }
+
+    button.btn-chip {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    button.btn-chip:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .stat-box {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-val {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      font-family: var(--font-mono);
+    }
+
+    .stat-sub {
+      font-size: 0.72rem;
+      color: var(--accent);
+    }
+
+    .progress-bar-wrap {
+      width: 100%;
+      height: 8px;
+      background: #080d0c;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      margin-top: 0.5rem;
+    }
+
+    .progress-segment-zero {
+      background: #10b981;
+      height: 100%;
+      transition: width 0.2s ease;
+    }
+
+    .progress-segment-nonzero {
+      background: #f59e0b;
+      height: 100%;
+      transition: width 0.2s ease;
+    }
+
+    /* Comparison Table */
+    .table-responsive {
+      overflow-x: auto;
+      margin-top: 0.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--card-inner);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .row-net-name {
+      font-family: var(--font-sans);
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .cost-bar-container {
+      width: 120px;
+      background: #090e0d;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .cost-bar-fill {
+      background: var(--accent);
+      height: 100%;
+      border-radius: 4px;
+    }
+
+    .badge-savings {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.12);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .tip-box {
+      background: rgba(20, 184, 166, 0.05);
+      border: 1px solid rgba(20, 184, 166, 0.2);
+      border-radius: 6px;
+      padding: 0.8rem 1rem;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .tip-title {
+      color: var(--accent);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .input-mode-toggle {
+      display: flex;
+      gap: 0.25rem;
+      background: #080d0c;
+      padding: 0.15rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .input-mode-btn {
+      padding: 0.2rem 0.6rem;
+      font-size: 0.72rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .input-mode-btn.active {
+      background: var(--card-inner);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .error-msg {
+      color: #f87171;
+      font-size: 0.75rem;
+      margin-top: 0.35rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-top">
+        <h1>
+          <span>L2 Calldata Gas & Compression Analyzer</span>
+          <span class="badge">EIP-4844 & Fjord Ready</span>
+        </h1>
+        <button class="btn-chip" id="btnCopyReport">📋 Copy Cost Report</button>
+      </div>
+      <p>Analyze transaction calldata entropy, FastLZ/Brotli compressibility, and simulate posting costs across Ethereum L1, OP Stack (Fjord), Arbitrum Nitro, and Blobs.</p>
+    </header>
+
+    <!-- Calldata Input Card -->
+    <section class="card">
+      <div class="card-title">
+        <span>Transaction Calldata Payload</span>
+        <div class="input-mode-toggle">
+          <button class="input-mode-btn active" id="modeHex">Hex Input</button>
+          <button class="input-mode-btn" id="modeUtf8">UTF-8 / JSON</button>
+        </div>
+      </div>
+
+      <textarea id="calldataInput" spellcheck="false" placeholder="Paste 0x prefixed hex calldata here..."></textarea>
+      <div class="error-msg" id="inputError">Invalid hex string format.</div>
+
+      <div class="preset-bar">
+        <span class="preset-label">Presets:</span>
+        <button class="btn-chip" data-preset="erc20">ERC20 Transfer</button>
+        <button class="btn-chip" data-preset="uniswap">Uniswap v3 Swap</button>
+        <button class="btn-chip" data-preset="batch">Multicall (5 Transfers)</button>
+        <button class="btn-chip" data-preset="nft">ERC-721 Batch Mint</button>
+        <button class="btn-chip" data-preset="sparse">Sparse 0-Padded Data</button>
+        <button class="btn-chip" data-preset="clear">Clear</button>
+      </div>
+    </section>
+
+    <!-- Calldata Anatomy & Compression Stats -->
+    <section class="grid-4">
+      <div class="stat-box">
+        <span class="stat-label">Payload Size</span>
+        <span class="stat-val" id="statSize">0 B</span>
+        <span class="stat-sub" id="statWords">0 words (32B)</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">Zero vs Non-Zero</span>
+        <span class="stat-val" id="statZeros">0 / 0</span>
+        <div class="progress-bar-wrap" title="Green: Zero (4 gas) | Orange: Non-Zero (16 gas)">
+          <div class="progress-segment-zero" id="barZero" style="width: 50%;"></div>
+          <div class="progress-segment-nonzero" id="barNonZero" style="width: 50%;"></div>
+        </div>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">Estimated Compressed</span>
+        <span class="stat-val" id="statCompressed">0 B</span>
+        <span class="stat-sub" id="statRatio">Ratio: 0.0%</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">Shannon Entropy</span>
+        <span class="stat-val" id="statEntropy">0.00</span>
+        <span class="stat-sub" id="statEntropyDesc">bits / byte</span>
+      </div>
+    </section>
+
+    <!-- Market & Gas Parameters -->
+    <section class="card">
+      <div class="card-title">
+        <span>Gas Pricing & Market Environment</span>
+        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">Real-time adjustable variables</span>
+      </div>
+      <div class="grid-4">
+        <div>
+          <label for="paramEthPrice">ETH Price (USD)</label>
+          <input type="number" id="paramEthPrice" value="3200" step="10" min="1">
+        </div>
+        <div>
+          <label for="paramL1BaseFee">L1 Base Fee (Gwei)</label>
+          <input type="number" id="paramL1BaseFee" value="18" step="0.5" min="0.01">
+        </div>
+        <div>
+          <label for="paramBlobFee">L1 Blob Base Fee (Gwei)</label>
+          <input type="number" id="paramBlobFee" value="1.2" step="0.1" min="0.001">
+        </div>
+        <div>
+          <label for="paramL2ExecFee">L2 Execution Fee (Gwei)</label>
+          <input type="number" id="paramL2ExecFee" value="0.04" step="0.01" min="0.001">
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison Table Across L1 and L2s -->
+    <section class="card">
+      <div class="card-title">
+        <span>Estimated Transaction Posting Cost Comparison</span>
+        <span class="badge" style="font-size:0.68rem;">Calldata + 21k Execution Base</span>
+      </div>
+      <div class="table-responsive">
+        <table id="costTable">
+          <thead>
+            <tr>
+              <th>Network / System</th>
+              <th>Compression Mode</th>
+              <th>Effective Size</th>
+              <th>L1 Data Gas</th>
+              <th>Total Cost (Gwei)</th>
+              <th>Est. Cost (USD)</th>
+              <th>Savings vs L1</th>
+            </tr>
+          </thead>
+          <tbody id="costTableBody">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Optimization Insights -->
+    <section class="tip-box" id="optimizationAdvice">
+      <div class="tip-title">
+        <span>⚡ Calldata Optimization Analysis</span>
+      </div>
+      <div id="adviceContent">Input calldata above to see recommendations for minimizing L1 data overhead.</div>
+    </section>
+  </div>
+
+  <script>
+    // Presets definitions
+    const PRESETS = {
+      erc20: '0xa9059cbb0000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488d0000000000000000000000000000000000000000000000056bc75e2d63100000',
+      uniswap: '0x5ae401dc000000000000000000000000000000000000000000000000000000006653df32000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020',
+      batch: '0xac9650d800000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000005' +
+        '0000000000000000000000001111111254fb6c44bac0bed2854e76f90643097d'.repeat(5),
+      nft: '0xa0712d680000000000000000000000000000000000000000000000000000000000000005',
+      sparse: '0x0000000000000000000000000000000000000000000000000000000000000000'.repeat(8) + '1234567890abcdef'
+    };
+
+    let activeInputMode = 'hex'; // 'hex' | 'utf8'
+
+    // DOM references
+    const calldataInput = document.getElementById('calldataInput');
+    const inputError = document.getElementById('inputError');
+    const modeHexBtn = document.getElementById('modeHex');
+    const modeUtf8Btn = document.getElementById('modeUtf8');
+    const statSize = document.getElementById('statSize');
+    const statWords = document.getElementById('statWords');
+    const statZeros = document.getElementById('statZeros');
+    const statCompressed = document.getElementById('statCompressed');
+    const statRatio = document.getElementById('statRatio');
+    const statEntropy = document.getElementById('statEntropy');
+    const statEntropyDesc = document.getElementById('statEntropyDesc');
+    const barZero = document.getElementById('barZero');
+    const barNonZero = document.getElementById('barNonZero');
+    const costTableBody = document.getElementById('costTableBody');
+    const adviceContent = document.getElementById('adviceContent');
+    const btnCopyReport = document.getElementById('btnCopyReport');
+
+    const paramEthPrice = document.getElementById('paramEthPrice');
+    const paramL1BaseFee = document.getElementById('paramL1BaseFee');
+    const paramBlobFee = document.getElementById('paramBlobFee');
+    const paramL2ExecFee = document.getElementById('paramL2ExecFee');
+
+    // Utility: Convert bytes to Hex
+    function bytesToHex(uint8) {
+      return Array.from(uint8).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Utility: Convert string to UTF-8 bytes
+    function stringToBytes(str) {
+      return new TextEncoder().encode(str);
+    }
+
+    // Parse current input to Uint8Array
+    function parsePayload() {
+      const raw = calldataInput.value.trim();
+      inputError.style.display = 'none';
+
+      if (!raw) return new Uint8Array(0);
+
+      if (activeInputMode === 'utf8') {
+        return stringToBytes(raw);
+      } else {
+        let clean = raw.replace(/\s+/g, '');
+        if (clean.startsWith('0x') || clean.startsWith('0X')) {
+          clean = clean.slice(2);
+        }
+        if (clean.length % 2 !== 0) {
+          clean = '0' + clean; // pad uneven hex nibble
+        }
+        if (!/^[0-9a-fA-F]*$/.test(clean)) {
+          inputError.style.display = 'block';
+          return new Uint8Array(0);
+        }
+        const bytes = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < clean.length; i += 2) {
+          bytes[i / 2] = parseInt(clean.substr(i, 2), 16);
+        }
+        return bytes;
+      }
+    }
+
+    // LZ77-style compression size estimator (FastLZ approximation)
+    function estimateLzSize(bytes) {
+      if (bytes.length === 0) return 0;
+      let pos = 0;
+      let outSize = 0;
+      const len = bytes.length;
+      const windowSize = 256;
+
+      while (pos < len) {
+        let bestMatchLen = 0;
+        const startWindow = Math.max(0, pos - windowSize);
+
+        for (let j = startWindow; j <
