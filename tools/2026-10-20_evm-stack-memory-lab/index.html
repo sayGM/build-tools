@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EVM Stack & Memory Stepper</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", monospace;
+    }
+
+    body {
+      background-color: #0b1211;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: 1px solid #1a2c28;
+      padding-bottom: 0.75rem;
+    }
+
+    .title-group h1 {
+      font-size: 1.35rem;
+      color: #14B8A6;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+    }
+
+    .title-group p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    select, button, textarea {
+      background-color: #111c1a;
+      border: 1px solid #233935;
+      color: #e2e8f0;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    select:focus, button:focus, textarea:focus {
+      border-color: #14B8A6;
+      box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #162925;
+      border-color: #14B8A6;
+      color: #14B8A6;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background-color: #14B8A6;
+      color: #0b1211;
+      border-color: #14B8A6;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background-color: #0d9488;
+      border-color: #0d9488;
+      color: #050a09;
+    }
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.6rem;
+    }
+
+    .stat-card {
+      background-color: #111c1a;
+      border: 1px solid #1c302c;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+
+    .stat-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #14B8A6;
+      margin-top: 0.15rem;
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1.3fr;
+      gap: 1rem;
+      flex: 1;
+    }
+
+    @media (max-width: 1024px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background-color: #111c1a;
+      border: 1px solid #1c302c;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 380px;
+    }
+
+    .panel-header {
+      background-color: #142421;
+      border-bottom: 1px solid #1c302c;
+      padding: 0.55rem 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .panel-header .badge {
+      background-color: #091210;
+      border: 1px solid #233935;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: #14B8A6;
+      font-family: monospace;
+    }
+
+    .code-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #codeEditor {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #0d1614;
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      padding: 0.75rem;
+      resize: none;
+      border-radius: 0;
+      white-space: pre;
+    }
+
+    .program-stepper {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 480px;
+      background: #0d1614;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+    }
+
+    .instr-row {
+      display: flex;
+      align-items: center;
+      padding: 0.25rem 0.6rem;
+      border-bottom: 1px solid #13221e;
+      color: #94a3b8;
+    }
+
+    .instr-row.active {
+      background: rgba(20, 184, 166, 0.15);
+      border-left: 3px solid #14B8A6;
+      color: #f1f5f9;
+      font-weight: bold;
+    }
+
+    .instr-row.executed {
+      color: #475569;
+    }
+
+    .instr-pc {
+      width: 48px;
+      color: #52756d;
+    }
+
+    .instr-op {
+      flex: 1;
+      color: #cbd5e1;
+    }
+
+    .instr-row.active .instr-op {
+      color: #2dd4bf;
+    }
+
+    .instr-arg {
+      color: #f59e0b;
+      margin-left: 0.4rem;
+    }
+
+    /* Stack list */
+    .stack-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-height: 480px;
+      background: #0d1614;
+    }
+
+    .stack-empty {
+      color: #475569;
+      font-size: 0.75rem;
+      text-align: center;
+      margin-top: 3rem;
+      font-style: italic;
+    }
+
+    .stack-item {
+      display: flex;
+      align-items: center;
+      background: #111d1a;
+      border: 1px solid #1b302a;
+      border-radius: 5px;
+      padding: 0.35rem 0.5rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      position: relative;
+    }
+
+    .stack-item.new-item {
+      border-color: #14B8A6;
+      background: rgba(20, 184, 166, 0.08);
+    }
+
+    .stack-idx {
+      color: #52756d;
+      width: 32px;
+      font-size: 0.7rem;
+      user-select: none;
+    }
+
+    .stack-val {
+      flex: 1;
+      word-break: break-all;
+      color: #f1f5f9;
+    }
+
+    .stack-val-dec {
+      font-size: 0.68rem;
+      color: #94a3b8;
+      margin-left: 0.4rem;
+    }
+
+    /* Memory visualizer */
+    .mem-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      max-height: 480px;
+      background: #0d1614;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .mem-word-row {
+      background: #111d1a;
+      border: 1px solid #1a2e29;
+      border-radius: 5px;
+      padding: 0.4rem;
+      font-size: 0.72rem;
+    }
+
+    .mem-word-header {
+      display: flex;
+      justify-content: space-between;
+      color: #52756d;
+      margin-bottom: 0.3rem;
+      font-size: 0.68rem;
+      border-bottom: 1px dashed #1a2f2a;
+      padding-bottom: 0.2rem;
+    }
+
+    .mem-word-header .word-tag {
+      color: #14B8A6;
+    }
+
+    .mem-bytes-grid {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 2px;
+      text-align: center;
+      margin-bottom: 0.25rem;
+    }
+
+    @media (max-width: 600px) {
+      .mem-bytes-grid {
+        grid-template-columns: repeat(8, 1fr);
+      }
+    }
+
+    .mem-byte {
+      padding: 2px 0;
+      background: #091210;
+      border-radius: 2px;
+      color: #64748b;
+    }
+
+    .mem-byte.non-zero {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+
+    .mem-byte.highlight-write {
+      background: #14B8A6;
+      color: #041210;
+      font-weight: bold;
+    }
+
+    .mem-ascii {
+      color: #94a3b8;
+      font-size: 0.68rem;
+      word-break: break-all;
+      background: #08100e;
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+    }
+
+    .status-alert {
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-family: monospace;
+      display: none;
+    }
+
+    .status-alert.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+    }
+
+    .status-alert.halted {
+      display: block;
+      background: rgba(20, 184, 166, 0.15);
+      border: 1px solid #14B8A6;
+      color: #5eead4;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.5rem;
+      background: #142421;
+      border-top: 1px solid #1c302c;
+    }
+
+    .tooltip {
+      font-size: 0.7rem;
+      color: #64748b;
+      padding: 0.4rem 0.75rem;
+      background: #0a1312;
+      border-top: 1px solid #172a26;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        EVM Stack & Memory Stepper
+      </h1>
+      <p>Interactive single-instruction simulator with exact gas, 256-bit stack, and dynamic byte memory inspection</p>
+    </div>
+
+    <div class="header-actions">
+      <select id="presetSelect" title="Load Preset Pattern">
+        <option value="fmp">Preset: Solidity Free Mem Pointer (0x40)</option>
+        <option value="math">Preset: Arithmetic, Bitwise & Overflow</option>
+        <option value="mstore">Preset: MSTORE & MSTORE8 Byte Alignment</option>
+        <option value="jump">Preset: Conditional Loop & Branching</option>
+        <option value="gas_mem">Preset: Memory Expansion Gas Quadratic Jump</option>
+      </select>
+      <button id="btnLoadPreset">Load</button>
+      <button id="btnReset" title="Reset state">Reset</button>
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-label">Program Counter (PC)</div>
+      <div class="stat-val" id="statPc">0x00 (0)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Gas Used</div>
+      <div class="stat-val" id="statGas">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Memory Size</div>
+      <div class="stat-val" id="statMsize">0 bytes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Stack Depth</div>
+      <div class="stat-val" id="statStackDepth">0 / 1024</div>
+    </div>
+  </div>
+
+  <div id="statusAlert" class="status-alert"></div>
+
+  <div class="workspace-grid">
+    <!-- Code / Program Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Assembly Instructions</span>
+        <button id="btnEditToggle" style="padding: 0.2rem 0.5rem; font-size: 0.72rem;">Edit Code</button>
+      </div>
+
+      <div class="code-container">
+        <div id="codeView" class="program-stepper"></div>
+        <textarea id="codeEditor" style="display: none;" spellcheck="false"></textarea>
+      </div>
+
+      <div class="action-group">
+        <button id="btnStepBack" title="Step Backward">◀ Back</button>
+        <button id="btnStep" class="primary" title="Execute single instruction">Step ▶</button>
+        <button id="btnRun" title="Run to end or breakpoint">Run</button>
+      </div>
+      <div class="tooltip">
+        <span>Supports PUSH1-32, DUP1-16, SWAP1-16, ADD, SUB, MUL, DIV, MSTORE, MLOAD, JUMP, etc.</span>
+      </div>
+    </div>
+
+    <!-- Stack Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>EVM Stack (LIFO, 256-bit Words)</span>
+        <span class="badge" id="stackCountBadge">0 words</span>
+      </div>
+      <div class="stack-list" id="stackView">
+        <div class="stack-empty">Stack is empty</div>
+      </div>
+      <div class="tooltip">
+        <span>Top of stack is at Index 0</span>
+        <span id="stackFormatNote">Hex (BigInt uint256)</span>
+      </div>
+    </div>
+
+    <!-- Memory Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Linear Memory (32-byte Word Boundaries)</span>
+        <span class="badge" id="memWordsBadge">0 Words Allocated</span>
+      </div>
+      <div class="mem-container" id="memView">
+        <div class="stack-empty" id="memEmpty">Memory is currently empty (0 bytes)</div>
+      </div>
+      <div class="tooltip">
+        <span>Active write target highlights in teal</span>
+        <span>Standard layout: 0x40 free mem ptr</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Presets
+    const PRESETS = {
+      fmp: `// Solidity Standard Free Memory Pointer Init
+PUSH1 0x80
+PUSH1 0x40
+MSTORE
+
+// Reserve 64 bytes for a struct: [x = 0x2a, y = 0x64]
+PUSH1 0x40
+MLOAD          // Load current free mem pointer (0x80)
+
+PUSH1 0x2a     // 42
+DUP2
+MSTORE         // store 42 at 0x80
+
+PUSH1 0x64     // 100
+DUP2
+PUSH1 0x20
+ADD
+MSTORE         // store 100 at 0xa0 (0x80 + 0x20)
+
+// Update free mem pointer to 0xc0
+DUP1
+PUSH1 0x40
+ADD
+PUSH1 0x40
+MSTORE
+POP`,
+
+      math: `// Arithmetic, Bitwise, and 256-bit Underflow/Overflow
+PUSH1 0x05
+PUSH1 0x03
+ADD            // 5 + 3 = 8
+
+PUSH1 0x02
+MUL            // 8 * 2 = 16 (0x10)
+
+PUSH1 0x01
+SUB            // 16 - 1 = 15 (0x0F)
+
+// Trigger 256-bit wrap (underflow behavior in EVM opcodes)
+PUSH1 0x00
+PUSH1 0x01
+SUB            // 0 - 1 = 0xFF...FF (type(uint256).max)
+
+// Bitwise AND mask
+PUSH1 0xFF
+AND            // 0xFF...FF & 0xFF = 0xFF
+
+// Bitshift left 8 bits
+PUSH1 0x08
+SHL            // 0xFF << 8 = 0xFF00`,
+
+      mstore: `// MSTORE & MSTORE8 Byte Alignment
+// Write 0xdeadbeef to offset 0x00
+PUSH4 0xdeadbeef
+PUSH1 0x00
+MSTORE
+
+// Write single byte 0xff at offset 0x01 (inside the word)
+PUSH1 0xff
+PUSH1 0x01
+MSTORE8
+
+// Read 32 bytes from offset 0x00
+PUSH1 0x00
+MLOAD`,
+
+      jump: `// Counter loop using JUMP
+PUSH1 0x00        // Loop counter = 0
+PUSH1 0x03        // Limit = 3
+
+loop:
+JUMPDEST
+// Check if counter == limit
+DUP2
+DUP2
+EQ
+PUSH1 done
+JUMPI
+
+// Increment counter
+SWAP1
+PUSH1 0x01
+ADD
+SWAP1
+
+// Jump back
+PUSH1 loop
+JUMP
+
+done:
+JUMPDEST
+POP               // Clean up stack limit`,
+
+      gas_mem: `// Memory Expansion Quadratic Gas Test
+// Expansion 1: writes to offset 0x1f (allocates 32 bytes)
+PUSH1 0xaa
+PUSH1 0x1f
+MSTORE8
+
+// Expansion 2: writes to offset 0x3ff (allocates 1024 bytes)
+// Watch how gas spikes quadratically!
+PUSH1 0xbb
+PUSH2 0x03ff
+MSTORE8`
+    };
+
+    // State Variables
+    let parsedInstructions = [];
+    let labelMap = {};
+    let currentStepIndex = 0;
+    let gasUsed = 0;
+    let stack = [];
+    let memory = new Uint8Array(0);
+    let history = [];
+    let isRunning = false;
+    let runTimer = null;
+    let lastWrittenRange = null;
+
+    // DOM Elements
+    const codeView = document.getElementById('codeView');
+    const codeEditor = document.getElementById('codeEditor');
+    const btnEditToggle = document.getElementById('btnEditToggle');
+    const btnStep = document.getElementById('btnStep');
+    const btnStepBack = document.getElementById('btnStepBack');
+    const btnRun = document.getElementById('btnRun');
+    const btnReset = document.getElementById('btnReset');
+    const btnLoadPreset = document.getElementById('btnLoadPreset');
+    const presetSelect = document.getElementById('presetSelect');
+    const stackView = document.getElementById('stackView');
+    const memView = document.getElementById('memView');
+    const statPc = document.getElementById('statPc');
+    const statGas = document.getElementById('statGas');
+    const statMsize = document.getElementById('statMsize');
+    const statStackDepth = document.getElementById('statStackDepth');
+    const statusAlert = document.getElementById('statusAlert');
+    const stackCountBadge = document.getElementById('stackCountBadge');
+    const memWordsBadge = document.getElementById('memWordsBadge');
+
+    // EVM Memory Gas Formula
+    function calcMemGas(numBytes) {
+      if (numBytes <= 0) return 0;
+      const words = Math.ceil(numBytes / 32);
+      return (3 * words) + Math.floor((words * words) / 512);
+    }
