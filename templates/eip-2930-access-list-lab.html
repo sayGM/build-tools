@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EIP-2930 Access List Architect & Gas Optimizer</title>
+  <style>
+    :root {
+      --bg: #0b1211;
+      --card-bg: #111c1a;
+      --card-border: #1d302c;
+      --card-hover: #152422;
+      --accent: #14B8A6;
+      --accent-hover: #0d9488;
+      --accent-dim: rgba(20, 184, 166, 0.12);
+      --text: #e2e8f0;
+      --text-muted: #82a39d;
+      --text-dim: #4d6863;
+      --green: #10B981;
+      --green-bg: rgba(16, 185, 129, 0.12);
+      --red: #F43F5E;
+      --red-bg: rgba(244, 63, 94, 0.12);
+      --amber: #F59E0B;
+      --amber-bg: rgba(245, 158, 11, 0.12);
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      line-height: 1.5;
+      padding: 1rem;
+    }
+
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 1rem;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Tx Parameters Strip */
+    .config-strip {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .input-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+
+    input, select, textarea {
+      background: #09100f;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 0.5rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    /* Presets bar */
+    .presets-container {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .presets-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .btn-preset {
+      background: #111c1a;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.35rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .btn-preset:hover {
+      background: var(--card-hover);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    /* Scoreboard Metrics */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content:
