@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereum JSON-RPC Payload Forge</title>
+  <style>
+    :root {
+      --bg: #0b1211;
+      --card-bg: #111c1a;
+      --card-sub: #162522;
+      --card-border: #1e332f;
+      --accent: #14B8A6;
+      --accent-hover: #0d9488;
+      --accent-dim: rgba(20, 184, 166, 0.15);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --code-bg: #070d0c;
+      --danger: #f43f5e;
+      --warning: #f59e0b;
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.5;
+      padding: 20px 14px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+
+    .tagline {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .preset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+    }
+
+    .preset-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-preset {
+      background: var(--card-sub);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-family: var(--mono);
+      transition: all 0.15s ease;
+    }
+
+    .btn-preset:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 860px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .label-hint {
+      font-weight: 400;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    select, input, textarea {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 0.85rem;
+      font-family: var(--mono);
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .method-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: var(--card-sub);
+      border-left: 3px solid var(--accent);
+      padding: 8px 12px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      line-height: 1.4;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 500px) {
+      .input-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .validation-box {
+      font-size: 0.78rem;
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: none;
+      font-family: var(--mono);
+    }
+
+    .validation-box.warn {
+      display: block;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--warning);
+    }
+
+    .validation-box.error {
+      display: block;
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: var(--danger);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--card-sub);
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      font-family: var(--mono);
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .code-container {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      min-height: 280px;
+    }
+
+    .code-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--card-border);
+      background: var(--card-sub);
+      border-top-left-radius: var(--radius);
+      border-top-right-radius: var(--radius);
+    }
+
+    .code-lang-label {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      text-transform: uppercase;
+    }
+
+    .btn-action {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--mono);
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-action:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .code-viewer {
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.5;
+      flex-grow: 1;
+      max-height: 480px;
+    }
+
+    .syntax-key { color: var(--accent); }
+    .syntax-string { color: #a5f3fc; }
+    .syntax-num { color: #fde047; }
+    .syntax-bool { color: #f472b6; }
+    .syntax-comment { color: #64748b; font-style: italic; }
+
+    .node-url-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .node-url-bar input {
+      flex: 1;
+      font-size: 0.78rem;
+    }
+
+    .stats-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      padding: 4px 6px;
+      border-top: 1px solid var(--card-border);
+      background: var(--card-sub);
+      border-bottom-left-radius: var(--radius);
+      border-bottom-right-radius: var(--radius);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent);
+      color: #042f2e;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-family: var(--mono);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="brand-title">
+          <span>Ethereum JSON-RPC Forge</span>
+          <span class="badge">EIP-1474</span>
+        </div>
+        <p class="tagline">Build, validate & export node RPC requests to cURL, Viem, Ethers.js & Web3.py</p>
+      </div>
+      <div class="node-url-bar">
+        <input type="text" id="nodeEndpoint" value="https://eth-mainnet.g.alchemy.com/v2/YOUR-API-KEY" placeholder="RPC Endpoint URL">
+      </div>
+    </header>
+
+    <div class="preset-bar">
+      <span class="preset-label">Templates:</span>
+      <button class="btn-preset" data-preset="erc20Balance">ERC-20 balanceOf()</button>
+      <button class="btn-preset" data-preset="readStorage">Storage Slot 0</button>
+      <button class="btn-preset" data-preset="transferLogs">Transfer Events (getLogs)</button>
+      <button class="btn-preset" data-preset="accountNonce">Account Nonce</button>
+      <button class="btn-preset" data-preset="traceTx">debug_traceTransaction</button>
+      <button class="btn-preset" data-preset="estimateGas">eth_estimateGas</button>
+    </div>
+
+    <div class="main-grid">
+      <!-- Method & Param Config Panel -->
+      <div class="card">
+        <div class="card-title">
+          <span>1. Method & Parameters</span>
+          <span class="label-hint" id="activeMethodTag">eth_call</span>
+        </div>
+
+        <div class="form-group">
+          <label for="rpcMethodSelect">JSON-RPC Method</label>
+          <select id="rpcMethodSelect">
+            <optgroup label="State & Balances">
+              <option value="eth_call">eth_call (Dry run / View functions)</option>
+              <option value="eth_getBalance">eth_getBalance (Native ETH balance)</option>
+              <option value="eth_getTransactionCount">eth_getTransactionCount (Account nonce)</option>
+              <option value="eth_getCode">eth_getCode (Contract bytecode)</option>
+              <option value="eth_getStorageAt">eth_getStorageAt (Inspect slot state)</option>
+            </optgroup>
+            <optgroup label="Blocks & Execution">
+              <option value="eth_estimateGas">eth_estimateGas (Simulate gas limit)</option>
+              <option value="eth_sendRawTransaction">eth_sendRawTransaction (Broadcast signed tx)</option>
+              <option value="eth_getBlockByNumber">eth_getBlockByNumber (Block header & txs)</option>
+              <option value="eth_blockNumber">eth_blockNumber (Current block)</option>
+              <option value="eth_chainId">eth_chainId (Network identifier)</option>
+            </optgroup>
+            <optgroup label="Events & Logs">
+              <option value="eth_getLogs">eth_getLogs (Event filter logs)</option>
+            </optgroup>
+            <optgroup label="Debug & Tracing">
+              <option value="debug_traceTransaction">debug_traceTransaction (Opcode trace)</option>
+              <option value="debug_traceCall">debug_traceCall (Simulate call trace)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div id="methodDescription" class="method-desc"></div>
+
+        <div class="input-row">
+          <div class="form-group">
+            <label for="rpcId">Request ID <span class="label-hint">Integer</span></label>
+            <input type="number" id="rpcId" value="1" min="1">
+          </div>
+          <div class="form-group">
+            <label for="blockTagSelect">Block Parameter <span class="label-hint">Default</span></label>
+            <select id="blockTagSelect">
+              <option value="latest">latest</option>
+              <option value="pending">pending</option>
+              <option value="finalized">finalized</option>
+              <option value="safe">safe</option>
+              <option value="earliest">earliest</option>
+              <option value="custom_hex">Custom Block (Decimal or Hex)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" id="customBlockRow" style="display: none;">
+          <label for="customBlockInput">Custom Block Number <span class="label-hint">Auto converts to hex</span></label>
+          <input type="text" id="customBlockInput" placeholder="e.g. 19500000 or 0x12984a0">
+        </div>
+
+        <!-- Dynamic parameter containers -->
+        <div id="dynamicParams" style="display: flex; flex-direction: column; gap: 12px;"></div>
+
+        <div id="validationFeedback" class="validation-box"></div>
+      </div>
+
+      <!-- Code Generators Panel -->
+      <div class="card">
+        <div class="card-title">
+          <span>2. Generated Output</span>
+          <div class="tabs" id="outputTabs">
+            <button class="tab-btn active" data-tab="json">JSON-RPC</button>
+            <button class="tab-btn" data-tab="curl">cURL</button>
+            <button class="tab-btn" data-tab="viem">Viem</button>
+            <button class="tab-btn" data-tab="ethers">Ethers.js v6</button>
+            <button class="tab-btn" data-tab="python">Web3.py</button>
+          </div>
+        </div>
+
+        <div class="code-container">
+          <div class="code-toolbar">
+            <span class="code-lang-label" id="currentLangLabel">JSON-RPC 2.0</span>
+            <button class="btn-action" id="btnCopy">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copy</span>
+            </button>
+          </div>
+
+          <div class="code-viewer" id="codeViewer"></div>
+
+          <div class="stats-bar">
+            <span id="payloadSizeLabel">Size: 0 bytes</span>
+            <span id="paramCountLabel">Params: 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied to clipboard!</div>
+
+  <script>
+    // State definitions
+    const METHOD_SCHEMAS = {
+      eth_call: {
+        desc: "Executes a new message call immediately without creating a transaction on the block chain (dry run).",
+        fields: [
+          { id: "to", label: "To (Target Address)", type: "text", placeholder: "0x...", default: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
+          { id: "from", label: "From (Caller Address - Optional)", type: "text", placeholder: "0x...", default: "" },
+          { id: "data", label: "Data / Calldata (Hex)", type: "textarea", placeholder: "0x70a08231000000000000000000000000...", default: "0x70a08231000000000000000000000000ab5801a7d398351b8be11c439e05c5b3259aec9b" },
+          { id: "value", label: "Value (Wei Hex - Optional)", type: "text", placeholder: "0x0", default: "" },
+          { id: "gas", label: "Gas Limit (Hex - Optional)", type: "text", placeholder: "0x...", default: "" }
+        ],
+        hasBlockTag: true
+      },
+      eth_getBalance: {
+        desc: "Returns the balance of the account of given address in wei.",
+        fields: [
+          { id: "address", label: "Address", type: "text", placeholder: "0x...", default: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" }
+        ],
+        hasBlockTag: true
+      },
+      eth_getTransactionCount: {
+        desc: "Returns the number of transactions sent from an address (account nonce).",
+        fields: [
+          { id: "address", label: "Address", type: "text", placeholder: "0x...", default: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" }
+        ],
+        hasBlockTag: true
+      },
+      eth_getCode: {
+        desc: "Returns code at a given contract address.",
+        fields: [
+          { id: "address", label: "Contract Address", type: "text", placeholder: "0x...", default: "0xdac17f958d2ee523a2206206994597c13d831ec7" }
+        ],
+        hasBlockTag: true
+      },
+      eth_getStorageAt: {
+        desc: "Returns the value from a storage position at a given contract address.",
+        fields: [
+          { id: "address", label: "Contract Address", type: "text", placeholder: "0x...", default: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
+          { id: "position", label: "Storage Slot (Hex or Int)", type: "text", placeholder: "0x0 or 0", default: "0x0"
