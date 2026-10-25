@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERC-4626 Vault Lab</title>
+  <style>
+    :root {
+      --bg: #0b1211;
+      --card-bg: #111c1a;
+      --card-border: #1d312e;
+      --accent: #14B8A6;
+      --accent-hover: #0d9488;
+      --accent-light: rgba(20, 184, 166, 0.12);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --danger: #f43f5e;
+      --danger-bg: rgba(244, 63, 94, 0.1);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.1);
+      --success: #10b981;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      padding: 1.25rem;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .brand-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-badge {
+      font-size: 0.75rem;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .preset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    /* Buttons */
+    .btn {
+      background: #192a27;
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #04221f;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    .btn-primary:hover {
+      background: #2dd4bf;
+      color: #021715;
+    }
+
+    .btn-danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-bg);
+    }
+
+    .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    /* Grid Layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.6rem;
+    }
+
+    .card-title span.sub {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    /* Form Elements */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input, select, textarea {
+      background: #0b1413;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .helper-text {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    /* Stat Badges */
+    .stat-box {
+      background: #0d1715;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      word-break: break-all;
+    }
+
+    .stat-sub {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* User Cards */
+    .user-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .user-card {
+      background: #0e1715;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .user-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .user-avatar {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+
+    .user-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .user-row span.val {
+      font-family: var(--font-mono);
+      color: #fff;
+    }
+
+    /* History Log */
+    .log-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .log-entry {
+      background: #0d1614;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .log-entry.inflation {
+      border-left-color: var(--danger);
+      background: #1c1013;
+    }
+
+    .log-entry.yield {
+      border-left-color: var(--success);
+    }
+
+    .log-top {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      align-items: center;
+    }
+
+    .log-math {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: #070d0c;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    /* Rounding Checker Table */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      background: #0c1514;
+    }
+
+    td {
+      font-family: var(--font-mono);
+    }
+
+    .rounding-tag {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .rounding-down {
+      background: rgba(20, 184, 166, 0.15);
+      color: var(--accent);
+    }
+
+    .rounding-up {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .warning-box {
+      border: 1px solid var(--warning);
+      background: var(--warning-bg);
+      color: #fde68a;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-start;
+    }
+
+    .danger-box {
+      border: 1px solid var(--danger);
+      background: var(--danger-bg);
+      color: #fecdd3;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+    }
+
+    /* Modal / Code preview */
+    pre {
+      background: #080d0c;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      overflow-x: auto;
+      max-height: 350px;
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.825rem;
+      padding: 0.3rem 0.6rem;
+      cursor: pointer;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div>
+        <div class="brand-title">
+          <span>ERC-4626 Vault Lab</span>
+          <span class="brand-badge">EVM Simulator</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+          Interactive tokenized vault sandbox: precise BigInt rounding, virtual shares protection & inflation attack inspection.
+        </p>
+      </div>
+      <div class="preset-bar">
+        <button class="btn" onclick="loadScenario('normal')">⚡ Standard Flow</button>
+        <button class="btn btn-danger" onclick="loadScenario('attack')">⚠️ Inflation Attack</button>
+        <button class="btn" onclick="loadScenario('protected')">🛡️ Virtual Shares Defense</button>
+        <button class="btn" onclick="resetVault()">↺ Reset</button>
+      </div>
+    </header>
+
+    <!-- Top Vault Config & Global Metrics -->
+    <div class="grid-2">
+      <!-- Config -->
+      <div class="card">
+        <div class="card-title">
+          <span>Vault Specifications</span>
+          <span class="sub">EIP-4626 standard rules</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cfgAssetDecimals">Asset Decimals (e.g. USDC=6, WETH=18)</label>
+            <input type="number" id="cfgAssetDecimals" value="18" min="0" max="24" onchange="updateVaultConfig()">
+          </div>
+          <div class="form-group">
+            <label for="cfgVirtualOffset">Virtual Decimals Offset (OZ v5)</label>
+            <input type="number" id="cfgVirtualOffset" value="0" min="0" max="9" onchange="updateVaultConfig()">
+            <span class="helper-text">0 = No offset. 3 = +1000 virtual shares, +1 asset (anti-inflation).</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cfgAssetSymbol">Asset Symbol</label>
+            <input type="text" id="cfgAssetSymbol" value="WETH" onchange="updateVaultConfig()">
+          </div>
+          <div class="form-group">
+            <label for="cfgShareSymbol">Vault Share Symbol</label>
+            <input type="text" id="cfgShareSymbol" value="vWETH" onchange="updateVaultConfig()">
+          </div>
+        </div>
+      </div>
+
+      <!-- State Metrics -->
+      <div class="card">
+        <div class="card-title">
+          <span>Live Vault State</span>
+          <span class="sub" id="offsetNotice">Offset: 0</span>
+        </div>
+        <div class="grid-3">
+          <div class="stat-box">
+            <div class="stat-label">Total Assets</div>
+            <div class="stat-value" id="statTotalAssets">0</div>
+            <div class="stat-sub" id="statTotalAssetsRaw">0 wei</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Total Shares</div>
+            <div class="stat-value" id="statTotalShares">0</div>
+            <div class="stat-sub" id="statTotalSharesRaw">0 wei</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Exchange Rate</div>
+            <div class="stat-value" id="statRate">1.0000</div>
+            <div class="stat-sub" id="statRateSub">1 Share = 1 Asset</div>
+          </div>
+        </div>
+        <div id="inflationAlert" class="danger-box hidden">
+          ⚠️ <strong>High Inflation Detected:</strong> The exchange rate is severely inflated. Small subsequent deposits will suffer massive integer division truncation (100% loss).
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Execution Workbench -->
+    <div class="grid-2">
+      <!-- Action Form -->
+      <div class="card">
+        <div class="card-title">
+          <span>Execute Vault Operation</span>
+          <span class="sub">Simulate tx call</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="actorSelect">Actor</label>
+            <select id="actorSelect">
+              <option value="Alice">Alice (User)</option>
+              <option value="Bob">Bob (User)</option>
+              <option value="Attacker">Attacker (Malicious)</option>
+              <option value="Protocol">Protocol / Yield Source</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="actionType">Operation</label>
+            <select id="actionType" onchange="updateActionForm()">
+              <option value="deposit">deposit(assets) [Rounds DOWN shares]</option>
+              <option value="mint">mint(shares) [Rounds UP assets]</option>
+              <option value="withdraw">withdraw(assets) [Rounds UP shares]</option>
+              <option value="redeem">redeem(shares) [Rounds DOWN assets]</option>
+              <option value="donate">Direct Donation / Yield (assets)</option>
+              <option value="loss">Simulate Loss / Slash (assets)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label id="amountLabel" for="actionAmount">Amount</label>
+            <div style="display:flex; gap:0.35rem;">
+              <button class="btn btn-sm" onclick="setQuickAmount('1wei')">1 wei</button>
+              <button class="btn btn-sm" onclick="setQuickAmount('10')">10</button>
+              <button class="btn btn-sm" onclick="setQuickAmount('100')">100</button>
+              <button class="btn btn-sm" onclick="setQuickAmount('1000')">1,000</button>
+            </div>
+          </div>
+          <input type="text" id="actionAmount" value="
