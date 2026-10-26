@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethereum Precompiled Explorer</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: #1e2e2b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .precompile-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .precompile-item:hover {
+            border-color: var(--accent);
+        }
+
+        .precompile-item.active {
+            background: rgba(20, 184, 166, 0.1);
+            border-color: var(--accent);
+        }
+
+        .addr {
+            font-family: monospace;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .main-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            position: sticky;
+            top: 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #1e2e2b;
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .desc {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .gas-calc {
+            background: #0b1211;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+            margin-bottom: 20px;
+        }
+
+        .gas-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+            margin-bottom: 5px;
+        }
+
+        .gas-value {
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: var(--muted);
+        }
+
+        input, textarea {
+            width: 100%;
+            background: #0b1211;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            color: white;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 80px;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .calldata-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #080d0c;
+            border-radius: 6px;
+            border: 1px dashed var(--border);
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .copy-btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        .copy-btn:hover { opacity: 0.9; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .stat-item span {
+            display: block;
+            color: var(--text);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Precompiled Explorer</h1>
+        <p class="subtitle">Interactive reference for Ethereum precompiled contracts</p>
+    </header>
+
+    <div class="grid">
+        <div class="sidebar" id="sidebar">
+            <!-- Items injected by JS -->
+        </div>
+
+        <div class="main-card" id="detail-view">
+            <div id="welcome-msg">
+                <h2>Select a precompile</h2>
+                <p class="desc">Select a contract from the left to view its technical details, gas mechanics, and generate calldata.</p>
+            </div>
+            <div id="content-view" style="display:none;">
+                <div id="precompile-tag" class="tag"></div>
+                <h2 id="precompile-name"></h2>
+                <p id="precompile-desc" class="desc"></p>
+                
+                <div class="stat-grid">
+                    <div class="stat-item">Address <span id="view-addr"></span></div>
+                    <div class="stat-item">Introduced <span id="view-eip"></span></div>
+                </div>
+
+                <div class="gas-calc">
+                    <div class="gas-title">Gas Cost Model</div>
+                    <div id="gas-formula" style="font-size: 0.85rem; margin-bottom: 8px; color: var(--accent);"></div>
+                    <div class="gas-value" id="current-gas">0</div>
+                </div>
+
+                <div id="inputs-container">
+                    <!-- Dynamic inputs -->
+                </div>
+
+                <label>Generated Calldata</label>
+                <div class="calldata-box" id="calldata-output">0x</div>
+                <button class="copy-btn" onclick="copyCalldata()">Copy Calldata</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const precompiles = [
+        {
+            address: "0x01",
+            name: "ecRecover",
+            eip: "Frontier",
+            desc: "Recovers the address associated with the public key from elliptic curve signature. Expects 128 bytes: 32 bytes hash, 32 bytes v (padded), 32 bytes r, 32 bytes s.",
+            formula: "Static: 3000 gas",
+            calcGas: (input) => 3000,
+            inputs: [
+                { label: "Hash (32 bytes)", length: 64, default: "456e746572206120333220627974652068617368206865726520212121212121" },
+                { label: "v (32 bytes padded)", length: 64, default: "000000000000000000000000000000000000000000000000000000000000001c" },
+                { label: "r (32 bytes)", length: 64, default: "1111111111111111111111111111111111111111111111111111111111111111" },
+                { label: "s (32 bytes)", length: 64, default: "2222222222222222222222222222222222222222222222222222222222222222" }
+            ]
+        },
+        {
+            address: "0x02",
+            name: "SHA2-256",
+            eip: "Frontier",
+            desc: "Returns the SHA2-256 hash of the input data.",
+            formula: "60 + (12 * word_count)",
+            calcGas: (input) => 60 + (12 * Math.ceil(input.length / 64)),
+            inputs: [{ label: "Input Data (Hex)", type: "area", default: "68656c6c6f" }]
+        },
+        {
+            address: "0x03",
+            name: "RIPEMD-160",
+            eip: "Frontier",
+            desc: "Returns the RIPEMD-160 hash of the input data, padded to 32 bytes.",
+            formula: "600 + (120 * word_count)",
+            calcGas: (input) => 600 + (120 * Math.ceil(input.length / 64)),
+            inputs: [{ label: "Input Data (Hex)", type: "area", default: "68656c6c6f" }]
+        },
+        {
+            address: "0x04",
+            name: "identity",
+            eip: "Frontier",
+            desc: "Returns the input data as output. Used for memory copying in some compilers.",
+            formula: "15 + (3 * word_count)",
+            calcGas: (input) => 15 + (3 * Math.ceil(input.length / 64)),
+            inputs: [{ label: "Input Data (Hex)", type: "area", default: "deadbeef" }]
+        },
+        {
+            address: "0x05",
+            name: "modexp",
+            eip: "EIP-198 / EIP-2565",
+            desc: "Calculates (base^exp) % mod. Format: [lenBase][lenExp][lenMod][base][exp][mod]",
+            formula: "Complexity-based (EIP-2565)",
+            calcGas: (input) => "Dynamic (Variable Complexity)",
+            inputs: [
+                { label: "Base Length (32b)", length: 64, default: "0000000000000000000000000000000000000000000000000000000000000001" },
+                { label: "Exp Length (32b)", length: 64, default: "0000000000000000000000000000000000000000000000000000000000000001" },
+                { label: "Mod Length (32b)", length: 64, default: "0000000000000000000000000000000000000000000000000000000000000001" },
+                { label: "Data (Base + Exp + Mod)", type: "area", default: "020305" }
+            ]
+        },
+        {
+            address: "0x06",
+            name: "alt_bn128_G1_add",
+            eip: "EIP-196 / EIP-1108",
+            desc: "Addition on elliptic curve alt_bn128. Expects two points (x1, y1, x2, y2).",
+            formula: "Static: 150 gas",
+            calcGas: () => 150,
+            inputs: [{ label: "Points (4 * 32 bytes)", type: "area", default: "00".repeat(128) }]
+        },
+        {
+            address: "0x07",
+            name: "alt_bn128_G1_mul",
+            eip: "EIP-196 / EIP-1108",
+            desc: "Scalar multiplication on elliptic curve alt_bn128. Expects (x, y, scalar).",
+            formula: "Static: 6000 gas",
+            calcGas: () => 6000,
+            inputs: [{ label: "Inputs (3 * 32 bytes)", type: "area", default: "00".repeat(96) }]
+        },
+        {
+            address: "0x08",
+            name: "alt_bn128_pairing",
+            eip: "EIP-197 / EIP-1108",
+            desc: "Pairing check on alt_bn128 curve. Expects sets of (A, B) points.",
+            formula: "34000 * k + 45000",
+            calcGas: (input) => {
+                const k = Math.floor(input.length / 384);
+                return 34000 * k + 45000;
+            },
+            inputs: [{ label: "Point Sets (Hex)", type: "area", default: "00".repeat(192) }]
+        },
+        {
+            address: "0x09",
+            name: "BLAKE2-f",
+            eip: "EIP-152",
+            desc: "F compression function for BLAKE2b hash.",
+            formula: "Variable (based on rounds)",
+            calcGas: (input) => {
+                if (input.length < 8) return "Invalid Input";
+                const rounds = parseInt(input.substring(0, 8), 16);
+                return isNaN(rounds) ? "Invalid" : rounds;
+            },
+            inputs: [{ label: "Input (213 bytes: rounds, h, m, t, f)", type: "area", default: "00000001" + "00".repeat(209) }]
+        },
+        {
+            address: "0x0a",
+            name: "point_evaluation",
+            eip: "EIP-4844",
+            desc: "Verifies a KZG proof that a polynomial has a specific value at a point.",
+            formula: "Static: 50000 gas",
+            calcGas: () => 50000,
+            inputs: [{ label: "Input (192 bytes)", type: "area", default: "00".repeat(192) }]
+        }
+    ];
+
+    let activePrecompile = null;
+
+    function init() {
+        const sidebar = document.getElementById('sidebar');
+        precompiles.forEach((p, idx) => {
+            const div = document.createElement('div');
+            div.className = 'precompile-item';
+            div.innerHTML = `<span class="name">${p.name}</span> <span class="addr">${p.address}</span>`;
+            div.onclick = () => selectPrecompile(idx);
+            sidebar.appendChild(div);
+        });
+    }
+
+    function selectPrecompile(index) {
+        activePrecompile = precompiles[index];
+        
+        // UI Toggles
+        document.getElementById('welcome-msg').style.display = 'none';
+        document.getElementById('content-view').style.display = 'block';
+        
+        // Update Sidebar
+        document.querySelectorAll('.precompile-item').forEach((el, i) => {
+            el.classList.toggle('active', i === index);
+        });
+
+        // Populate Details
+        document.getElementById('precompile-name').innerText = activePrecompile.name;
+        document.getElementById('precompile-tag').innerText = `Address ${activePrecompile.address}`;
+        document.getElementById('precompile-desc').innerText = activePrecompile.desc;
+        document.getElementById('view-addr').innerText = activePrecompile.address;
+        document.getElementById('view-eip').innerText = activePrecompile.eip;
+        document.getElementById('gas-formula').innerText = activePrecompile.formula;
+
+        // Build Inputs
+        const container = document.getElementById('inputs-container');
+        container.innerHTML = '';
+        activePrecompile.inputs.forEach((input, i) => {
+            const group = document.createElement('div');
+            group.className = 'input-group';
+            const label = document.createElement('label');
+            label.innerText = input.label;
+            
+            let field;
+            if (input.type === 'area') {
+                field = document.createElement('textarea');
+            } else {
+                field = document.createElement('input');
+                field.type = 'text';
+            }
+            field.value = input.default;
+            field.id = `input-${i}`;
+            field.oninput = updateCalculations;
+            
+            group.appendChild(label);
+            group.appendChild(field);
+            container.appendChild(group);
+        });
+
+        updateCalculations();
+    }
+
+    function updateCalculations() {
+        if (!activePrecompile) return;
+
+        let fullCalldata = "";
+        activePrecompile.inputs.forEach((input, i) => {
+            let val = document.getElementById(`input-${i}`).value.replace(/0x/g, '').replace(/[^0-9a-fA-F]/g, '');
+            fullCalldata += val;
+        });
+
+        const gas = activePrecompile.calcGas(fullCalldata);
+        document.getElementById('current-gas').innerText = gas.toLocaleString();
+        document.getElementById('calldata-output').innerText = "0x" + (fullCalldata || "00");
+    }
+
+    function copyCalldata() {
+        const text = document.getElementById('calldata-output').innerText;
+        navigator.clipboard.writeText(text);
+        const btn = document.querySelector('.copy-btn');
+        const oldText = btn.innerText;
+        btn.innerText = "Copied!";
+        setTimeout(() => btn.innerText = oldText, 1000);
+    }
+
+    init();
+</script>
+
+</body>
+</html>
