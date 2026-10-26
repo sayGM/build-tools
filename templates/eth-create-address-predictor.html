@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CREATE Address Predictor</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --accent-hover: #0d9488;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent);
+        }
+
+        input {
+            width: 100%;
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            color: var(--text);
+            font-family: monospace;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        .grid-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: 6px;
+            padding: 14px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .result-item {
+            background: rgba(20, 184, 166, 0.05);
+            border-left: 3px solid var(--accent);
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 0 6px 6px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nonce-badge {
+            font-size: 0.75rem;
+            background: var(--accent);
+            color: var(--bg);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .address-val {
+            font-family: monospace;
+            font-size: 1rem;
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            width: auto;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .info-text {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-top: 10px;
+        }
+
+        code {
+            background: #000;
+            padding: 2px 4px;
+            border-radius: 4px;
+            color: var(--accent);
+        }
+
+        @media (max-width: 480px) {
+            .grid-inputs {
+                grid-template-columns: 1fr;
+            }
+            .result-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .copy-btn {
+                margin-left: 0;
+                margin-top: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>CREATE Address Predictor</h1>
+            <p class="subtitle">Predict Ethereum contract addresses for future nonces</p>
+        </header>
+
+        <div class="card">
+            <div class="form-group">
+                <label for="deployer">Deployer Address (EOA or Contract)</label>
+                <input type="text" id="deployer" placeholder="0x..." value="0x0000000000000000000000000000000000000000">
+            </div>
+            <div class="grid-inputs">
+                <div class="form-group">
+                    <label for="startNonce">Start Nonce</label>
+                    <input type="number" id="startNonce" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="count">Predict Count</label>
+                    <input type="number" id="count" value="5" min="1" max="100">
+                </div>
+            </div>
+            <button id="calculateBtn">Predict Addresses</button>
+        </div>
+
+        <div id="resultsContainer" style="display: none;">
+            <div class="card">
+                <label>Predicted Addresses</label>
+                <div id="resultsList"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <label>How it works</label>
+            <p class="info-text">
+                In Ethereum, the <code>CREATE</code> opcode determines the address of a new contract using the formula:
+                <br><br>
+                <code>Address = keccak256(rlp.encode([sender, nonce]))[12:]</code>
+                <br><br>
+                This means contract addresses are deterministic based on the deployer's address and how many transactions (nonce) that address has sent. 
+                Note: <code>CREATE2</code> uses a different formula involving a salt and bytecode hash.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        /** 
+         * Keccak-256 implementation (Ethereum version)
+         * Compact version of the Keccak sponge function
+         */
+        const Keccak256 = (() => {
+            const SHA3_ROUNDS = 24;
+            const RHO = [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14];
+            const PI = [0, 10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1];
+            const RC = [
+                1n, 0x8082n, 0x800000000000808an, 0x8000000080008000n, 0x808bn, 0x80000001n, 0x8000000080008081n,
+                0x8000000000008009n, 0x8an, 0x88n, 0x80008009n, 0x8000000an, 0x8000808bn, 0x800000000000008bn,
+                0x8000000000008089n, 0x8000000000008003n, 0x8000000000008002n, 0x8000000000000080n, 0x800an,
+                0x800000008000000an, 0x8000000080008081n, 0x8000000000008080n, 0x80000001n, 0x8000000080008008n
+            ];
+
+            function rotl(x, n) {
+                return (x << BigInt(n % 64)) | (x >> BigInt(64 - (n % 64)));
+            }
+
+            function keccakF(state) {
+                for (let r = 0; r < SHA3_ROUNDS; r++) {
+                    let C = [];
+                    for (let x = 0; x < 5; x++) C[x] = state[x] ^ state[x+5] ^ state[x+10] ^ state[x+15] ^ state[x+20];
+                    for (let x = 0; x < 5; x++) {
+                        let D = C[(x+4)%5] ^ rotl(C[(x+1)%5], 1);
+                        for (let y = 0; y < 5; y++) state[x + y*5] ^= D;
+                    }
+                    let nextState = new BigUint64Array(25);
+                    for (let x = 0; x < 5; x++) {
+                        for (let y = 0; y < 5; y++) nextState[PI[x+y*5]] = rotl(state[x+y*5], RHO[x+y*5]);
+                    }
+                    state.set(nextState);
+                    for (let y = 0; y < 5; y++) {
+                        let row = [state[y*5], state[y*5+1], state[y*5+2], state[y*5+3], state[y*5+4]];
+                        for (let x = 0; x < 5; x++) {
+                            state[x+y*5] = row[x] ^ ((~row[(x+1)%5]) & row[(x+2)%5]);
+                        }
+                    }
+                    state[0] ^= RC[r];
+                }
+            }
+
+            return function(message) {
+                const rate = 136; // for 256-bit
+                let state = new BigUint64Array(25);
+                let msg = new Uint8Array(message.length + 1);
+                msg.set(message);
+                msg[message.length] = 0x01; // Ethereum padding
+                
+                let offset = 0;
+                while (offset < msg.length) {
+                    let block = new Uint8Array(rate);
+                    let take = Math.min(msg.length - offset, rate);
+                    block.set(msg.subarray(offset, offset + take));
+                    if (take === rate && offset + take === msg.length) {
+                         // special case: if padding was exact block size
+                    } else if (offset + take === msg.length) {
+                        block[rate - 1] |= 0x80;
+                    }
+
+                    for (let i = 0; i < rate / 8; i++) {
+                        let val = 0n;
+                        for (let j = 0; j < 8; j++) val |= BigInt(block[i * 8 + j]) << BigInt(j * 8);
+                        state[i] ^= val;
+                    }
+                    keccakF(state);
+                    offset += rate;
+                    if (offset === msg.length && take === rate) {
+                        // Needed if last block was full
+                        let padBlock = new Uint8Array(rate);
+                        padBlock[rate - 1] = 0x80;
+                        for (let i = 0; i < rate / 8; i++) {
+                            let val = 0n;
+                            for (let j = 0; j < 8; j++) val |= BigInt(padBlock[i * 8 + j]) << BigInt(j * 8);
+                            state[i] ^= val;
+                        }
+                        keccakF(state);
+                    }
+                }
+
+                let result = new Uint8Array(32);
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 8; j++) result[i * 8 + j] = Number((state[i] >> BigInt(j * 8)) & 0xffn);
+                }
+                return result;
+            };
+        })();
+
+        /**
+         * RLP encoding specialized for [address, nonce]
+         */
+        function encodeCreate(addressHex, nonce) {
+            let addr = addressHex.replace('0x', '').toLowerCase();
+            if (addr.length !== 40) throw new Error("Invalid address length");
+            
+            let addrBytes = [];
+            for (let i = 0; i < 40; i += 2) addrBytes.push(parseInt(addr.substr(i, 2), 16));
+
+            // RLP for Address: 0x94 + 20 bytes
+            let rlpAddr = [0x94, ...addrBytes];
+
+            // RLP for Nonce
+            let rlpNonce = [];
+            if (nonce === 0) {
+                rlpNonce = [0x80];
+            } else if (nonce < 0x80) {
+                rlpNonce = [nonce];
+            } else {
+                let n = nonce;
+                let bytes = [];
+                while (n > 0) {
+                    bytes.unshift(n & 0xff);
+                    n >>= 8;
+                }
+                rlpNonce = [0x80 + bytes.length, ...bytes];
+            }
+
+            // RLP for List
+            let totalLen = rlpAddr.length + rlpNonce.length;
+            let rlpList = [0xc0 + totalLen, ...rlpAddr, ...rlpNonce];
+
+            return new Uint8Array(rlpList);
+        }
+
+        function toChecksumAddress(address) {
+            address = address.toLowerCase().replace('0x', '');
+            const hash = Array.from(Keccak256(new TextEncoder().encode(address)))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            let ret = '0x';
+            for (let i = 0; i < address.length; i++) {
+                if (parseInt(hash[i], 16) >= 8) ret += address[i].toUpperCase();
+                else ret += address[i];
+            }
+            return ret;
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Logic UI
+        const deployerInput = document.getElementById('deployer');
+        const startNonceInput = document.getElementById('startNonce');
+        const countInput = document.getElementById('count');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const resultsList = document.getElementById('resultsList');
+
+        function calculate() {
+            const addr = deployerInput.value.trim();
+            const startNonce = parseInt(startNonceInput.value);
+            const count = parseInt(countInput.value);
+
+            if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+                alert("Please enter a valid Ethereum address starting with 0x");
+                return;
+            }
+
+            resultsList.innerHTML = '';
+            resultsContainer.style.display = 'block';
+
+            for (let i = 0; i < count; i++) {
+                const nonce = startNonce + i;
+                try {
+                    const rlp = encodeCreate(addr, nonce);
+                    const hash = Keccak256(rlp);
+                    // Address is last 20 bytes of keccak256 hash
+                    const contractAddrRaw = bytesToHex(hash.subarray(12));
+                    const checksummed = toChecksumAddress(
