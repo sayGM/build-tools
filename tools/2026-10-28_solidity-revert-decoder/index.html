@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solidity Revert & Panic Decoder</title>
+  <style>
+    :root {
+      --bg: #0b1211;
+      --card: #111c1a;
+      --card-alt: #162522;
+      --border: #1d332f;
+      --border-focus: #14B8A6;
+      --accent: #14B8A6;
+      --accent-glow: rgba(20, 184, 166, 0.18);
+      --accent-dim: #0d766a;
+      --text: #e6f1ef;
+      --text-muted: #84a39e;
+      --text-dim: #54726d;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.12);
+      --success: #10b981;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 1rem;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    header {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    .title-group h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .title-group h1 .tag {
+      font-size: 0.65rem;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .title-group p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 0.2rem;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #041d19;
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--card-alt);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .pill-btn {
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .pill-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    textarea, input, select {
+      width: 100%;
+      background: #080e0d;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      padding: 0.65rem 0.75rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    textarea:focus, input:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 1px var(--accent-glow);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.4;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+      .row.two-col {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-family: var(--mono);
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .badge-panic { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-error { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-custom { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent); }
+    .badge-empty { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .result-box {
+      margin-top: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #080e0d;
+      overflow: hidden;
+    }
+
+    .result-header {
+      padding: 0.65rem 0.9rem;
+      background: var(--card-alt);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .result-body {
+      padding: 1rem;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 0.6rem;
+      font-size: 0.82rem;
+      align-items: baseline;
+    }
+
+    @media (max-width: 580px) {
+      .kv-grid {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+      }
+      .kv-grid dt {
+        color: var(--text-dim);
+      }
+    }
+
+    .kv-grid dt {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+
+    .kv-grid dd {
+      word-break: break-all;
+      font-family: var(--mono);
+      color: #fff;
+    }
+
+    .explanation-panel {
+      margin-top: 1rem;
+      padding: 0.85rem;
+      background: var(--card);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+      font-size: 0.85rem;
+    }
+
+    .explanation-panel h4 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 0.35rem;
+    }
+
+    .explanation-panel p {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+
+    .btn-action {
+      background: var(--accent);
+      color: #041d19;
+      border: none;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.35rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: opacity 0.15s;
+    }
+
+    .btn-action:hover {
+      opacity: 0.9;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .code-block {
+      background: #040908;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      overflow-x: auto;
+      margin-top: 0.6rem;
+      color: #bbf7d0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .error-custom-list {
+      max-height: 140px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #080e0d;
+      padding: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+    }
+
+    .error-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0.4rem;
+      border-radius: 4px;
+      align-items: center;
+    }
+
+    .error-item:hover {
+      background: var(--card-alt);
+    }
+
+    .error-item code {
+      color: var(--accent);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .field-group {
+      margin-bottom: 0.85rem;
+    }
+
+    .field-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+
+    footer {
+      margin-top: auto;
+      padding-top: 1.5rem;
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .highlight-hex {
+      color: #5eead4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="title-group">
+        <h1>Solidity Revert & Panic Decoder <span class="tag">EVM 0.8+</span></h1>
+        <p>Inspect, diagnose, and construct Ethereum revert reasons, Panic codes, and custom ABI errors.</p>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" id="tabDecodeBtn" onclick="switchTab('decode')">Decode Revert</button>
+        <button class="tab-btn" id="tabEncodeBtn" onclick="switchTab('encode')">Encode Revert</button>
+      </div>
+    </header>
+
+    <!-- TAB 1: DECODER -->
+    <main id="decodeView" class="tab-content active">
+      <div class="card">
+        <div class="section-title">
+          <span>Quick Presets</span>
+          <span style="font-size: 0.7rem; color: var(--text-dim)">Click to test</span>
+        </div>
+        <div class="presets">
+          <button class="pill-btn" onclick="loadPreset('panic_overflow')">Panic: 0x11 (Overflow)</button>
+          <button class="pill-btn" onclick="loadPreset('panic_bounds')">Panic: 0x32 (Out of Bounds)</button>
+          <button class="pill-btn" onclick="loadPreset('panic_assert')">Panic: 0x01 (Assert false)</button>
+          <button class="pill-btn" onclick="loadPreset('error_string')">Error("Insufficient balance")</button>
+          <button class="pill-btn" onclick="loadPreset('custom_erc20')">Custom: ERC20InsufficientBalance</button>
+          <button class="pill-btn" onclick="loadPreset('custom_unauth')">Custom: Unauthorized(address)</button>
+          <button class="pill-btn" onclick="loadPreset('empty_revert')">Empty revert()</button>
+        </div>
+
+        <div class="field-group">
+          <label for="revertInput">RAW REVERT HEX / RPC ERROR STRING</label>
+          <textarea id="revertInput" placeholder="Paste hex data (0x...), Hardhat error message, or RPC return data" spellcheck="false" oninput="handleDecode()"></textarea>
+        </div>
+      </div>
+
+      <!-- DECODE RESULTS -->
+      <div id="resultsCard" class="card" style="display: none;">
+        <div class="section-title">
+          <span>Decoded Revert Reason</span>
+          <span id="revertBadge"></span>
+        </div>
+
+        <div class="result-box">
+          <div class="result-header">
+            <div>
+              <strong id="summaryTitle" style="color: #fff; font-size: 0.95rem;">-</strong>
+            </div>
+            <div style="display: flex; gap: 0.4rem;">
+              <button class="btn-ghost" onclick="copyDecodedJson()">Copy JSON</button>
+              <button class="btn-ghost" onclick="copyFoundryCheat()">Copy Foundry Mock</button>
+            </div>
+          </div>
+          <div class="result-body">
+            <dl class="kv-grid" id="kvList">
+              <!-- Dynamic KV -->
+            </dl>
+
+            <div class="explanation-panel" id="explanationPanel">
+              <h4 id="explanationTitle">EVM Diagnosis</h4>
+              <p id="explanationText">-</p>
+            </div>
+
+            <div style="margin-top: 1rem;">
+              <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">FOUNDRY TEST ASSERTION</span>
+              <div class="code-block" id="foundryBlock">vm.expectRevert(...);</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REGISTRY OF CUSTOM ERRORS -->
+      <div class="card">
+        <div class="section-title">
+          <span>Custom Errors Registry (ABI Signatures)</span>
+          <button class="btn-ghost" onclick="resetCustomErrors()">Restore Defaults</button>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.6rem;">
+          Any custom error listed here is automatically recognized when decoding 4-byte selectors.
+        </p>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.6rem;">
+          <input type="text" id="newErrorSig" placeholder="e.g. MyCustomError(address user, uint256 amount)" />
+          <button class="btn-action" style="white-space: nowrap;" onclick="addCustomError()">+ Add Error</button>
+        </div>
+        <div class="error-custom-list" id="customErrorsList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </main>
+
+    <!-- TAB 2: ENCODER -->
+    <section id="encodeView" class="tab-content">
+      <div class="card">
+        <div class="section-title">
+          <span>Generate Revert Hex</span>
+          <span style="font-size: 0.7rem; color: var(--text-dim)">For unit tests & mocks</span>
+        </div>
+
+        <div class="field-group">
+          <label for="encodeType">REVERT TYPE</label>
+          <select id="encodeType" onchange="handleEncodeTypeChange()">
+            <option value="panic">Solidity Panic(uint256) - Built-in compiler errors</option>
+            <option value="string">Standard Error(string) - require(cond, "...")</option>
+            <option value="custom">Custom Solidity Error</option>
+          </select>
+        </div>
+
+        <!-- Panic fields -->
+        <div id="encodePanicFields">
+          <div class="field-group">
+            <label for="panicCodeSelect">PANIC CODE</label>
+            <select id="panicCodeSelect" onchange="generateRevertPayload()">
+              <option value="0x00">0x00 - Generic / compiler inserted panic</option>
+              <option value="0x01">0x01 - assert(false) evaluated to false</option>
+              <option value="0x11" selected>0x11 - Arithmetic underflow or overflow</option>
+              <option value="0x12">0x12 - Division or modulo by zero</option>
+              <option value="0x21">0x21 - Invalid enum value conversion</option>
+              <option value="0x22">0x22 - Incorrectly encoded storage byte array</option>
+              <option value="0x31">0x31 - Array .pop() on empty dynamic array</option>
+              <option value="0x32">0x32 - Array index out of bounds</option>
+              <option value="0x41">0x41 - Memory allocation too large / array too big</option>
+              <option value="0x51">0x51 - Zero-initialized internal function pointer call</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- String fields -->
+        <div id="encodeStringFields" style="display: none;">
+          <div class="field-group">
+            <label for="errorStringInput">REVERT MESSAGE (STRING)</label>
+            <input type="text" id="errorStringInput" value="Transfer failed: insufficient allowance" placeholder="Revert reason message" oninput="generateRevertPayload()" />
+          </div>
+        </div>
+
+        <!-- Custom fields -->
+        <div id="encodeCustomFields" style="display: none;">
+          <div class="field-group">
+            <label for="customSelect">SELECT REGISTERED ERROR</label>
+            <select id="customSelect" onchange="updateCustomParamInputs()"></select>
+          </div>
+          <div id="customParamInputs"></div>
+        </div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="
