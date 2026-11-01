@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereum SSZ Codec & HashTreeRoot Explorer</title>
+  <style>
+    :root {
+      --bg-color: #0b1211;
+      --card-bg: #111c1a;
+      --card-border: #1d2e2a;
+      --accent-teal: #14B8A6;
+      --accent-teal-hover: #0d9488;
+      --accent-dim: rgba(20, 184, 166, 0.15);
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dark: #64748b;
+      --code-bg: #080d0c;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --blue: #3b82f6;
+      --purple: #8b5cf6;
+      --pink: #ec4899;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .title-group h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-group h1 span {
+      color: var(--accent-teal);
+    }
+
+    .subtitle {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .badge {
+      background: var(--accent-dim);
+      color: var(--accent-teal);
+      border: 1px solid var(--accent-teal);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px 6px 0 0;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-teal);
+      border-bottom: 2px solid var(--accent-teal);
+      background: var(--accent-dim);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Grid layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 850px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text-main);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Form Controls */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    label .type-tag {
+      color: var(--accent-teal);
+      text-transform: none;
+      font-family: monospace;
+      font-weight: normal;
+      float: right;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent-teal);
+    }
+
+    button.btn {
+      background: var(--accent-teal);
+      color: #000;
+      font-weight: 600;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 0.88rem;
+    }
+
+    button.btn:hover {
+      background: var(--accent-teal-hover);
+    }
+
+    /* Code & Visual Output */
+    .hex-box {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      word-break: break-all;
+      color: #38bdf8;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    .byte-tag {
+      display: inline-block;
+      padding: 2px 4px;
+      margin: 2px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+
+    .byte-tag:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 5px rgba(255,255,255,0.3);
+    }
+
+    /* Color map for byte inspection */
+    .c-field-0 { background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; }
+    .c-field-1 { background: rgba(16, 185, 129, 0.25); color: #6ee7b7; border: 1px solid #10b981; }
+    .c-field-2 { background: rgba(245, 158, 11, 0.25); color: #fcd34d; border: 1px solid #f59e0b; }
+    .c-field-3 { background: rgba(236, 72, 153, 0.25); color: #fbcfe8; border: 1px solid #ec4899; }
+    .c-field-4 { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; border: 1px solid #8b5cf6; }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-family: monospace;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    /* Merkle Tree Visualizer */
+    .tree-container {
+      overflow-x: auto;
+      padding: 10px 0;
+    }
+
+    .tree-level {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .tree-node {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+      min-width: 140px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .tree-node.root {
+      border-color: var(--accent-teal);
+      background: var(--accent-dim);
+    }
+
+    .tree-node.highlight {
+      border-color: var(--warning);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+
+    .tree-node .g-idx {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: var(--card-border);
+      color: var(--text-muted);
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 0.65rem;
+      font-weight: bold;
+    }
+
+    .tree-node .node-val {
+      color: var(--accent-teal);
+      word-break: break-all;
+      margin-top: 4px;
+      font-size: 0.7rem;
+    }
+
+    .tree-node .node-label {
+      color: var(--text-muted);
+      font-size: 0.68rem;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 10px;
