@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solidity ABI Craftsman</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --accent-hover: #0d9488;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1f2f2c;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent);
+            margin: 0;
+            font-size: 1.8rem;
+            letter-spacing: -0.025em;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background-color: #080d0c;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            padding: 0.75rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            background: #080d0c;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .radio-option:hover {
+            border-color: var(--accent);
+        }
+
+        .radio-option.active {
+            border-color: var(--accent);
+            background: rgba(20, 184, 166, 0.1);
+        }
+
+        input[type="radio"] {
+            display: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        textarea {
+            font-family: 'Courier New', Courier, monospace;
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .output-container {
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background-color: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .copy-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+        }
+
+        code {
+            color: var(--accent);
+            background: rgba(20, 184, 166, 0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Solidity ABI Craftsman</h1>
+        <p class="subtitle">Generate standard JSON ABI fragments from human-readable signatures.</p>
+    </header>
+
+    <div class="card">
+        <div class="form-group">
+            <label>Component Type</label>
+            <div class="radio-group" id="typeGroup">
+                <label class="radio-option active" data-val="function">
+                    <input type="radio" name="type" value="function" checked> Function
+                </label>
+                <label class="radio-option" data-val="event">
+                    <input type="radio" name="type" value="event"> Event
+                </label>
+                <label class="radio-option" data-val="error">
+                    <input type="radio" name="type" value="error"> Error
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="signature">Signature</label>
+            <input type="text" id="signature" placeholder="e.g. transfer(address recipient, uint256 amount)" autocomplete="off">
+            <div class="hint" id="hintText">Supports nested types and <code>indexed</code> keyword for events.</div>
+        </div>
+
+        <div class="grid" id="functionMeta">
+            <div class="form-group">
+                <label for="stateMutability">State Mutability</label>
+                <select id="stateMutability">
+                    <option value="nonpayable">nonpayable</option>
+                    <option value="payable">payable</option>
+                    <option value="view">view</option>
+                    <option value="pure">pure</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="outputs">Return Types (Optional)</label>
+                <input type="text" id="outputs" placeholder="e.g. bool success, uint256 balance">
+            </div>
+        </div>
+
+        <div class="form-group" id="eventMeta" style="display:none;">
+            <label class="radio-option" style="display:inline-flex; width: auto;">
+                <input type="checkbox" id="anonymous"> Anonymous Event
+            </label>
+        </div>
+    </div>
+
+    <div class="card output-container">
+        <label>JSON ABI Output</label>
+        <button class="copy-btn" id="copyBtn">COPY</button>
+        <textarea id="result" readonly placeholder='[ { "type": "function", ... } ]'></textarea>
+    </div>
+
+    <div class="footer">
+        Crafted for Ethereum Developers • No External Libraries • Pure Vanilla JS
+    </div>
+</div>
+
+<script>
+    const sigInput = document.getElementById('signature');
+    const typeRadios = document.querySelectorAll('input[name="type"]');
+    const typeOptions = document.querySelectorAll('.radio-option[data-val]');
+    const mutabilityInput = document.getElementById('stateMutability');
+    const outputsInput = document.getElementById('outputs');
+    const anonInput = document.getElementById('anonymous');
+    const resultArea = document.getElementById('result');
+    const copyBtn = document.getElementById('copyBtn');
+    
+    const funcMeta = document.getElementById('functionMeta');
+    const eventMeta = document.getElementById('eventMeta');
+    const hintText = document.getElementById('hintText');
+
+    // State Management
+    let currentType = 'function';
+
+    typeOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            typeOptions.forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+            currentType = opt.dataset.val;
+            
+            // Toggle visibility
+            funcMeta.style.display = currentType === 'function' ? 'grid' : 'none';
+            eventMeta.style.display = currentType === 'event' ? 'block' : 'none';
+            
+            if(currentType === 'event') {
+                hintText.innerHTML = 'Add <code>indexed</code> before or after type, e.g. <code>Transfer(address indexed from, uint256 value)</code>';
+            } else {
+                hintText.innerHTML = 'Supports standard Solidity types and parameter names.';
+            }
+            
+            generate();
+        });
+    });
+
+    [sigInput, mutabilityInput, outputsInput, anonInput].forEach(el => {
+        el.addEventListener('input', generate);
+    });
+
+    function parseParams(str, isEvent = false) {
+        if (!str || str.trim() === "") return [];
+        
+        // Handle basic comma splitting while ignoring commas inside tuples (nested parens)
+        const params = [];
+        let depth = 0;
+        let current = "";
+        
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i];
+            if (char === '(') depth++;
+            if (char === ')') depth--;
+            if (char === ',' && depth === 0) {
+                params.push(current.trim());
+                current = "";
+            } else {
+                current += char;
+            }
+        }
+        params.push(current.trim());
+
+        return params.filter(p => p !== "").map(p => {
+            let item = { name: "", type: "" };
+            let parts = p.split(/\s+/);
+            
+            if (isEvent) {
+                const indexedIdx = parts.findIndex(x => x.toLowerCase() === 'indexed');
+                if (indexedIdx !== -1) {
+                    item.indexed = true;
+                    parts.splice(indexedIdx, 1);
+                } else {
+                    item.indexed = false;
+                }
+            }
+
+            // After removing 'indexed', usually we have 'type name' or just 'type'
+            if (parts.length >= 2) {
+                item.type = parts[0];
+                item.name = parts[1];
+            } else {
+                item.type = parts[0] || "";
+                item.name = "";
+            }
+
+            return item;
+        });
+    }
+
+    function generate() {
+        const rawSig = sigInput.value.trim();
+        if (!rawSig) {
+            resultArea.value = "";
+            return;
+        }
+
+        try {
+            const match = rawSig.match(/^(\w+)\s*\((.*)\)$/);
+            const name = match ? match[1] : rawSig.split('(')[0].trim();
+            const inner = match ? match[2] : "";
+
+            const abiItem = {
+                type: currentType,
+                name: name
+            };
+
+            const inputs = parseParams(inner, currentType === 'event');
+            abiItem.inputs = inputs;
+
+            if (currentType === 'function') {
+                abiItem.stateMutability = mutabilityInput.value;
+                const outputParams = parseParams(outputsInput.value, false);
+                abiItem.outputs = outputParams;
+            } else if (currentType === 'event') {
+                abiItem.anonymous = anonInput.checked;
+            }
+
+            resultArea.value = JSON.stringify([abiItem], null, 4);
+        } catch (e) {
+            resultArea.value = "Error parsing signature. Ensure format: name(type1 name1, ...)";
+        }
+    }
+
+    copyBtn.addEventListener('click', () => {
+        if (!resultArea.value) return;
+        navigator.clipboard.writeText(resultArea.value);
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = "COPIED!";
+        setTimeout(() => {
+            copyBtn.innerText = originalText;
+        }, 1500);
+    });
+
+    // Initial Trigger
+    generate();
+
+</script>
+
+</body>
+</html>
