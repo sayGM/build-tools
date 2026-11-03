@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVM Slot Alignment Lab</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #2d3748;
+            --highlight: rgba(20, 184, 166, 0.2);
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { max-width: 800px; width: 100%; }
+
+        header { margin-bottom: 2rem; text-align: center; }
+        h1 { color: var(--accent); margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+        p { color: var(--text-dim); font-size: 0.9rem; }
+
+        .card { background: var(--card); border: 1px solid var(--border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; }
+        .grid-32 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin: 1.5rem 0; }
+        @media (max-width: 600px) { .grid-32 { grid-template-columns: repeat(4, 1fr); } }
+
+        .byte-box {
+            background: #070b0a;
+            border: 1px solid var(--border);
+            padding: 8px 4px;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            position: relative;
+        }
+        .byte-box.active { border-color: var(--accent); background: var(--highlight); color: var(--accent); font-weight: bold; }
+        .byte-box::after {
+            content: attr(data-index);
+            position: absolute;
+            bottom: -14px;
+            left: 0;
+            width: 100%;
+            font-size: 0.6rem;
+            color: var(--text-dim);
+        }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 500px) { .controls { grid-template-columns: 1fr; } }
+
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; }
+        input, select {
+            width: 100%;
+            background: #070b0a;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+
+        .result-meta { margin-top: 1rem; font-size: 0.9rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+        .code-block {
+            background: #000;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #d1d5db;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            margin-top: 0.5rem;
+        }
+        .accent-text { color: var(--accent); }
+        .keyword { color: #f472b6; }
+        .comment { color: #6b7280; }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            background: var(--border);
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>EVM Slot Alignment Lab</h1>
+            <p>Visualize how Solidity types are padded and aligned within 32-byte storage slots.</p>
+        </header>
+
+        <div class="card">
+            <div class="controls">
+                <div>
+                    <label>Value (Hex or Dec)</label>
+                    <input type="text" id="inputValue" placeholder="0x1234" value="0x12345678">
+                </div>
+                <div>
+                    <label>Solidity Type</label>
+                    <select id="typeSelect">
+                        <optgroup label="Unsigned Integers (Right Aligned)">
+                            <option value="uint8">uint8 (1 byte)</option>
+                            <option value="uint16">uint16 (2 bytes)</option>
+                            <option value="uint32" selected>uint32 (4 bytes)</option>
+                            <option value="uint64">uint64 (8 bytes)</option>
+                            <option value="uint128">uint128 (16 bytes)</option>
+                            <option value="uint160">uint160 / address (20 bytes)</option>
+                            <option value="uint256">uint256 (32 bytes)</option>
+                        </optgroup>
+                        <optgroup label="Fixed Bytes (Left Aligned)">
+                            <option value="bytes1">bytes1 (1 byte)</option>
+                            <option value="bytes4">bytes4 (4 bytes)</option>
+                            <option value="bytes8">bytes8 (8 bytes)</option>
+                            <option value="bytes16">bytes16 (16 bytes)</option>
+                            <option value="bytes20">bytes20 (20 bytes)</option>
+                            <option value="bytes32">bytes32 (32 bytes)</option>
+                        </optgroup>
+                        <optgroup label="Others">
+                            <option value="bool">bool (1 byte, right)</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="tag">32-Byte Word Layout</span>
+            <div class="grid-32" id="grid">
+                <!-- Bytes generated by JS -->
+            </div>
+            
+            <div class="result-meta" id="details">
+                <!-- Details injected here -->
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="tag">Yul Extraction Logic</span>
+            <div class="code-block" id="yulOutput"></div>
+        </div>
+    </div>
+
+    <script>
+        const grid = document.getElementById('grid');
+        const inputValue = document.getElementById('inputValue');
+        const typeSelect = document.getElementById('typeSelect');
+        const details = document.getElementById('details');
+        const yulOutput = document.getElementById('yulOutput');
+
+        function update() {
+            const type = typeSelect.value;
+            let val = inputValue.value.trim();
+            
+            // Clean value
+            if (val.startsWith('0x')) val = val.slice(2);
+            if (!/^[0-9a-fA-F]*$/.test(val)) {
+                // Try decimal
+                try {
+                    val = BigInt(val).toString(16);
+                } catch(e) {
+                    val = "0";
+                }
+            }
+
+            const typeMeta = {
+                uint8: { size: 1, align: 'right' },
+                uint16: { size: 2, align: 'right' },
+                uint32: { size: 4, align: 'right' },
+                uint64: { size: 8, align: 'right' },
+                uint128: { size: 16, align: 'right' },
+                uint160: { size: 20, align: 'right' },
+                uint256: { size: 32, align: 'right' },
+                address: { size: 20, align: 'right' },
+                bool: { size: 1, align: 'right' },
+                bytes1: { size: 1, align: 'left' },
+                bytes4: { size: 4, align: 'left' },
+                bytes8: { size: 8, align: 'left' },
+                bytes16: { size: 16, align: 'left' },
+                bytes20: { size: 20, align: 'left' },
+                bytes32: { size: 32, align: 'left' }
+            };
+
+            const meta = typeMeta[type] || typeMeta.uint32;
+            const size = meta.size;
+            
+            // Pad value to required size
+            val = val.padStart(size * 2, '0').slice(-(size * 2));
+            
+            // Generate 32 bytes
+            let bytes = new Array(32).fill('00');
+            let startIdx = meta.align === 'right' ? (32 - size) : 0;
+            
+            for (let i = 0; i < size; i++) {
+                bytes[startIdx + i] = val.substr(i * 2, 2).toUpperCase();
+            }
+
+            // Render Grid
+            grid.innerHTML = '';
+            bytes.forEach((b, i) => {
+                const box = document.createElement('div');
+                box.className = 'byte-box';
+                if (i >= startIdx && i < startIdx + size) box.classList.add('active');
+                box.dataset.index = i;
+                box.textContent = b;
+                grid.appendChild(box);
+            });
+
+            // Meta Info
+            details.innerHTML = `
+                <div><strong>Alignment:</strong> ${meta.align === 'right' ? 'Right-aligned (Left-padded)' : 'Left-aligned (Right-padded)'}</div>
+                <div><strong>Occupancy:</strong> Bytes ${startIdx} to ${startIdx + size - 1}</div>
+            `;
+
+            // Yul Logic
+            const shiftVal = (32 - (startIdx + size)) * 8;
+            let code = ``;
+            if (meta.align === 'right') {
+                code = `<span class="comment">// Extraction from slot via Yul</span>\n`;
+                code += `<span class="keyword">let</span> word := <span class="keyword">sload</span>(slot)\n`;
+                if (size < 32) {
+                    const mask = (BigInt(1) << BigInt(size * 8)) - BigInt(1);
+                    code += `<span class="keyword">let</span> value := <span class="keyword">and</span>(<span class="keyword">shr</span>(${shiftVal}, word), 0x${mask.toString(16)})\n`;
+                } else {
+                    code += `<span class="keyword">let</span> value := word\n`;
+                }
+            } else {
+                code = `<span class="comment">// Extraction from slot via Yul (Fixed Bytes)</span>\n`;
+                code += `<span class="keyword">let</span> word := <span class="keyword">sload</span>(slot)\n`;
+                if (size < 32) {
+                    const shiftLeft = (32 - size) * 8;
+                    const mask = ((BigInt(1) << BigInt(size * 8)) - BigInt(1)) << BigInt(shiftLeft);
+                    code += `<span class="keyword">let</span> value := <span class="keyword">and</span>(word, 0x${mask.toString(16)})\n`;
+                } else {
+                    code += `<span class="keyword">let</span> value := word\n`;
+                }
+            }
+            yulOutput.innerHTML = code;
+        }
+
+        inputValue.addEventListener('input', update);
+        typeSelect.addEventListener('change', update);
+        update();
+    </script>
+</body>
+</html>
