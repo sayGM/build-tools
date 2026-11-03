@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EIP-2098 Signature Lab</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1e2e2b;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            color: var(--accent);
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            margin: 0.5rem 0 0 0;
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        textarea {
+            width: 100%;
+            background: #070b0a;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--accent);
+            padding: 0.75rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 80px;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 640px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .field {
+            margin-bottom: 1rem;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        .val-box {
+            background: #070b0a;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            word-break: break-all;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+            min-height: 1.2rem;
+            color: var(--text);
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: bold;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .error-msg {
+            color: var(--error);
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .info-text {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        .info-text code {
+            color: var(--accent);
+            background: rgba(20, 184, 166, 0.1);
+            padding: 0 4px;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border-radius: 4px;
+            float: right;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .comparison {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(20, 184, 166, 0.05);
+            padding: 1rem;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .stat {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-val {
+            display: block;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .stat-lbl {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        footer {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            margin-top: 2rem;
+            padding-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>EIP-2098 Signature Lab</h1>
+        <p class="subtitle">Convert and inspect Ethereum Compact Signatures</p>
+    </header>
+
+    <div class="card">
+        <label for="input-sig">Input Signature (64 or 65 bytes)</label>
+        <textarea id="input-sig" placeholder="0x... or raw hex" spellcheck="false"></textarea>
+        <div id="error-box" class="error-msg">Invalid hex signature. Must be 128 or 130 hex characters.</div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <label>Standard Format <span class="tag">65 Bytes</span></label>
+            <div class="field">
+                <div style="margin-bottom: 4px;">
+                    <span class="info-text">Full [R][S][V]</span>
+                    <button class="copy-btn" onclick="copyText('out-65')">Copy</button>
+                </div>
+                <div id="out-65" class="val-box"></div>
+            </div>
+            <div class="field">
+                <span class="info-text">v (Recovery ID)</span>
+                <div id="out-v" class="val-box"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <label>Compact Format (EIP-2098) <span class="tag">64 Bytes</span></label>
+            <div class="field">
+                <div style="margin-bottom: 4px;">
+                    <span class="info-text">Compact [R][yParityAndS]</span>
+                    <button class="copy-btn" onclick="copyText('out-64')">Copy</button>
+                </div>
+                <div id="out-64" class="val-box"></div>
+            </div>
+            <div class="field">
+                <span class="info-text">yParity bit (MSB of word 2)</span>
+                <div id="out-yparity" class="val-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <label>Component Breakdown</label>
+        <div class="field">
+            <span class="info-text">r (32 bytes)</span>
+            <div id="out-r" class="val-box"></div>
+        </div>
+        <div class="field">
+            <span class="info-text">s (32 bytes)</span>
+            <div id="out-s" class="val-box"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="comparison">
+            <div class="stat">
+                <span class="stat-val">65</span>
+                <span class="stat-lbl">Standard Bytes</span>
+            </div>
+            <div style="color: var(--accent); font-weight: bold; font-size: 1.5rem;">→</div>
+            <div class="stat">
+                <span class="stat-val">64</span>
+                <span class="stat-lbl">Compact Bytes</span>
+            </div>
+            <div style="color: var(--accent); font-weight: bold; font-size: 1.5rem;">=</div>
+            <div class="stat">
+                <span class="stat-val">1 Byte</span>
+                <span class="stat-lbl">Gas Saved</span>
+            </div>
+        </div>
+        <div style="margin-top: 1rem;" class="info-text">
+            EIP-2098 reduces the signature size by embedding the <code>v</code> parity bit into the first bit of the <code>s</code> value. Since <code>s</code> is always less than <code>secp256k1_n/2</code>, its most significant bit is always zero, making it available for use.
+        </div>
+    </div>
+
+    <footer>
+        EIP-2098 Signature Lab • No External Dependencies • Local Calculation
+    </footer>
+</div>
+
+<script>
+    const inputArea = document.getElementById('input-sig');
+    const errorBox = document.getElementById('error-box');
+    
+    const out65 = document.getElementById('out-65');
+    const out64 = document.getElementById('out-64');
+    const outV = document.getElementById('out-v');
+    const outY = document.getElementById('out-yparity');
+    const outR = document.getElementById('out-r');
+    const outS = document.getElementById('out-s');
+
+    inputArea.addEventListener('input', process);
+
+    function process() {
+        let raw = inputArea.value.trim().toLowerCase();
+        if (raw.startsWith('0x')) raw = raw.slice(2);
+        
+        // Basic hex validation
+        if (raw.length > 0 && !/^[0-9a-f]*$/.test(raw)) {
+            showError("Invalid hex characters");
+            return;
+        }
+
+        if (raw.length === 0) {
+            clearFields();
+            return;
+        }
+
+        if (raw.length !== 128 && raw.length !== 130) {
+            showError(`Invalid length: ${raw.length} hex chars (${raw.length / 2} bytes). Need 64 or 65 bytes.`);
+            return;
+        }
+
+        errorBox.style.display = 'none';
+
+        let r, s, v, yParity;
+
+        if (raw.length === 130) {
+            // Standard 65-byte
+            r = raw.slice(0, 64);
+            s = raw.slice(64, 128);
+            let vHex = raw.slice(128, 130);
+            v = parseInt(vHex, 16);
+            
+            // Normalize V
+            // Standard EVM v is 27 or 28. If 0 or 1, we treat as parity.
+            if (v === 27) yParity = 0;
+            else if (v === 28) yParity = 1;
+            else if (v === 0 || v === 1) yParity = v;
+            else {
+                // If it's a chain ID based V (EIP-155), we extract parity
+                // v = chainId * 2 + 35 or 36
+                yParity = v % 2 === 0 ? 1 : 0; 
+            }
+
+            // Generate Compact
+            // Compact s = (yParity << 255) | s
+            let sFirstByte = parseInt(s.slice(0, 2), 16);
+            if (yParity === 1) sFirstByte |= 0x80;
+            else sFirstByte &= 0x7F;
+            
+            let compactS = sFirstByte.toString(16).padStart(2, '0') + s.slice(2);
+            let compactSig = '0x' + r + compactS;
+            
+            updateDisplay(r, s, v, yParity, '0x' + raw, compactSig);
+        } else {
+            // Compact 64-byte
+            r = raw.slice(0, 64);
+            let compactS = raw.slice(64, 128);
+            
+            let sFirstByte = parseInt(compactS.slice(0, 2), 16);
+            yParity = (sFirstByte & 0x80) ? 1 : 0;
+            
+            // Extract actual S (clear the MSB)
+            let sFirstByteClean = sFirstByte & 0x7F;
+            s = sFirstByteClean.toString(16).padStart(2, '0') + compactS.slice(2);
+            
+            // v is typically 27 + yParity
+            v = 27 + yParity;
+            let vHex = v.toString(16).padStart(2, '0');
+            
+            updateDisplay(r, s, v, yParity, '0x' + r + s + vHex, '0x' + raw);
+        }
+    }
+
+    function updateDisplay(r, s, v, yParity, sig65, sig64) {
+        out65.textContent = sig65;
+        out64.textContent = sig64;
+        outV.textContent = `${v} (0x${v.toString(16)})`;
+        outY.textContent = yParity;
+        outR.textContent = '0x' + r;
+        outS.textContent = '0x'
