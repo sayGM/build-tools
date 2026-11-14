@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVM Bytecode Size Analyzer</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            border: 1px solid #1e293b;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent);
+        }
+
+        textarea {
+            width: 100%;
+            height: 160px;
+            background: #070d0c;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            color: var(--accent);
+            padding: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-item {
+            padding: 1rem;
+            background: #070d0c;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        .progress-container {
+            margin: 2rem 0;
+        }
+
+        .progress-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar-bg {
+            background: #070d0c;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #1e293b;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .metadata-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #1e293b;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+
+        .badge-warning { background: var(--warning); color: #000; }
+        .badge-error { background: var(--error); color: #fff; }
+        .badge-success { background: var(--success); color: #fff; }
+
+        .info-box {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            border-left: 3px solid var(--accent);
+            padding: 0.5rem 1rem;
+            background: rgba(20, 184, 166, 0.05);
+            margin-top: 1rem;
+        }
+
+        .hex-preview {
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            max-height: 100px;
+            overflow-y: auto;
+            background: #070d0c;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        .highlight-meta {
+            color: var(--accent);
+            text-decoration: underline;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>EVM Bytecode Size Analyzer</h1>
+        <p class="subtitle">Analyze contract size, metadata overhead, and EIP-170 compliance.</p>
+    </header>
+
+    <div class="card">
+        <label for="bytecodeInput">Bytecode (Hex)</label>
+        <textarea id="bytecodeInput" placeholder="0x60806040..."></textarea>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">Total Size</div>
+                <div id="totalSize" class="stat-value">0 B</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Code Only</div>
+                <div id="codeSize" class="stat-value">0 B</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Metadata</div>
+                <div id="metaSize" class="stat-value">0 B</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Deploy Gas</div>
+                <div id="deployGas" class="stat-value">0</div>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-label-row">
+                <span>EIP-170 Size Limit (24,576 bytes)</span>
+                <span id="percentLabel">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div id="progressBar" class="progress-bar-fill"></div>
+            </div>
+        </div>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <div class="card metadata-section">
+        <label>Metadata Analysis</label>
+        <div id="metadataInfo" class="info-box">Paste bytecode to analyze metadata.</div>
+        <div id="hexPreview" class="hex-preview">...</div>
+    </div>
+
+    <div class="card">
+        <label>Gas Cost breakdown</label>
+        <div class="info-box" style="border-left-color: var(--text-dim)">
+            <p><strong>Deployment:</strong> 21,000 (Transaction) + 32,000 (Creation) + (200 * code_size)</p>
+            <p style="margin-top:0.5rem"><em>Note: This estimates the cost of storing the bytecode on-chain. It does not include constructor logic execution costs.</em></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const input = document.getElementById('bytecodeInput');
+    const totalSizeEl = document.getElementById('totalSize');
+    const codeSizeEl = document.getElementById('codeSize');
+    const metaSizeEl = document.getElementById('metaSize');
+    const deployGasEl = document.getElementById('deployGas');
+    const progressBar = document.getElementById('progressBar');
+    const percentLabel = document.getElementById('percentLabel');
+    const statusMsg = document.getElementById('statusMessage');
+    const metadataInfo = document.getElementById('metadataInfo');
+    const hexPreview = document.getElementById('hexPreview');
+
+    const EIP170_LIMIT = 24576;
+
+    input.addEventListener('input', analyze);
+
+    function analyze() {
+        let hex = input.value.trim();
+        if (hex.startsWith('0x')) hex = hex.slice(2);
+        hex = hex.replace(/[^0-9a-fA-F]/g, '');
+
+        const totalBytes = hex.length / 2;
+        if (totalBytes === 0) {
+            resetUI();
+            return;
+        }
+
+        // Detect Solidity Metadata (solc footer)
+        // Common footer: 0xa2 0x64 'i' 'p' 'f' 's' 0x58 0x22 <34 bytes> 0x64 's' 'o' 'l' 'c' 0x43 <3 bytes> 0x00 0x33
+        // Also look for older Swarm pattern: 0xa1 0x65 'b' 'z' 'z' 'r' '0' ... 0x00 0x29
+        
+        let metaBytes = 0;
+        let metaType = "None";
+        
+        // Solidity uses the last 2 bytes as the length of the CBOR metadata
+        if (hex.length >= 4) {
+            const footerLengthHex = hex.slice(-4);
+            const footerLength = parseInt(footerLengthHex, 16);
+            
+            // Check if this length looks sane (metadata is usually < 1000 bytes)
+            if (footerLength > 0 && footerLength < totalBytes - 2) {
+                metaBytes = footerLength + 2;
+                metaType = "Solidity CBOR Metadata";
+            }
+        }
+
+        const codeBytes = totalBytes - metaBytes;
+        const deployGas = 21000 + 32000 + (totalBytes * 200);
+        const percent = (totalBytes / EIP170_LIMIT) * 100;
+
+        // Update UI
+        totalSizeEl.textContent = `${totalBytes.toLocaleString()} B`;
+        codeSizeEl.textContent = `${codeBytes.toLocaleString()} B`;
+        metaSizeEl.textContent = `${metaBytes.toLocaleString()} B`;
+        deployGasEl.textContent = deployGas.toLocaleString();
+
+        percentLabel.textContent = `${percent.toFixed(2)}%`;
+        progressBar.style.width = `${Math.min(percent, 100)}%`;
+
+        if (percent > 100) {
+            progressBar.style.backgroundColor = 'var(--error)';
+            statusMsg.innerHTML = `<span class="badge badge-error">CRITICAL</span> Bytecode exceeds EIP-170 limit! Deployment will fail on Mainnet.`;
+        } else if (percent > 85) {
+            progressBar.style.backgroundColor = 'var(--warning)';
+            statusMsg.innerHTML = `<span class="badge badge-warning">WARNING</span> Approaching EIP-170 limit. Consider optimization.`;
+        } else {
+            progressBar.style.backgroundColor = 'var(--accent)';
+            statusMsg.innerHTML = `<span class="badge badge-success">OK</span> Bytecode is within size limits.`;
+        }
+
+        if (metaBytes > 0) {
+            const metaStartIdx = (totalBytes - metaBytes) * 2;
+            const codePart = hex.slice(0, metaStartIdx);
+            const metaPart = hex.slice(metaStartIdx);
+            
+            metadataInfo.innerHTML = `
+                Found <strong>${metaType}</strong> at the end of the bytecode.<br/>
+                Metadata takes up <strong>${((metaBytes / totalBytes) * 100).toFixed(1)}%</strong> of the total file size.
+            `;
+            hexPreview.innerHTML = `${codePart.slice(-100)}<span class="highlight-meta">${metaPart}</span>`;
+        } else {
+            metadataInfo.textContent = "No standard Solidity metadata footer detected.";
+            hexPreview.textContent = hex.slice(-100);
+        }
+    }
+
+    function resetUI() {
+        totalSizeEl.textContent = '0 B';
+        codeSizeEl.textContent = '0 B';
+        metaSizeEl.textContent = '0 B';
+        deployGasEl.textContent = '0';
+        progressBar.style.width = '0%';
+        percentLabel.textContent = '0%';
+        statusMsg.innerHTML = '';
+        metadataInfo.textContent = "Paste bytecode to analyze metadata.";
+        hexPreview.textContent = "...";
+    }
+</script>
+
+</body>
+</html>
