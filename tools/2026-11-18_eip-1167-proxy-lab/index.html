@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EIP-1167 Minimal Proxy Lab</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: #1e292b;
+            --error: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            line-height: 1.5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 { color: var(--accent); font-size: 1.5rem; margin-bottom: 0.5rem; }
+        p { color: var(--text-dim); margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            color: var(--accent);
+        }
+
+        input, textarea {
+            width: 100%;
+            background: #070d0c;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+
+        .anatomy {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #070d0c;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .op { padding: 2px 4px; border-radius: 3px; cursor: help; position: relative; border: 1px solid transparent; }
+        .op:hover { border-color: var(--accent); background: rgba(20, 184, 166, 0.1); }
+        
+        .op-logic { color: #f472b6; font-weight: bold; } /* Address part */
+        .op-pre { color: #60a5fa; } /* Prefix */
+        .op-post { color: #fbbf24; } /* Postfix */
+
+        .error-msg { color: var(--error); font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 1rem; display: none; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .tooltip {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+        }
+
+        .byte-box {
+            word-break: break-all;
+            user-select: all;
+        }
+
+        .title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            background: var(--accent);
+            color: var(--bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>EIP-1167 Minimal Proxy Lab</h1>
+        <p>Generate and deconstruct standardized ERC-1167 proxy bytecode. This pattern is widely used for gas-efficient contract cloning.</p>
+    </header>
+
+    <div class="card">
+        <label for="logicAddress">Implementation Address</label>
+        <input type="text" id="logicAddress" placeholder="0x..." value="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2">
+        <div id="addrError" class="error-msg">Invalid Ethereum address.</div>
+
+        <label>Generated Proxy Bytecode</label>
+        <textarea id="outputBytecode" readonly rows="3"></textarea>
+        
+        <label>Anatomy Breakdown</label>
+        <div class="anatomy" id="anatomyContainer">
+            <!-- Populated by JS -->
+        </div>
+        <div class="tooltip">Hover over bytes to see Opcode meanings.</div>
+    </div>
+
+    <div class="card">
+        <div class="title-row">
+            <label for="inputProxy">Deconstruct Bytecode</label>
+            <span class="badge">REVERSE LOOKUP</span>
+        </div>
+        <input type="text" id="inputProxy" placeholder="Paste 0x363d3d37... here">
+        <div id="proxyError" class="error-msg">Invalid EIP-1167 bytecode detected.</div>
+        
+        <label>Extracted Implementation</label>
+        <input type="text" id="extractedAddress" readonly placeholder="Result will appear here">
+    </div>
+
+    <div class="card" style="font-size: 0.85rem; color: var(--text-dim);">
+        <label>Standard Pattern</label>
+        <code>363d3d373d3d3d363d73 &lt;addr&gt; 5af43d82803e903d91602b57fd5bf3</code>
+        <p style="margin-top: 10px;">
+            The EIP-1167 proxy simply delegates all calls to a master implementation using <code>DELEGATECALL</code>, 
+            passing all calldata and returning all data, while preserving the execution context (storage/caller).
+        </p>
+    </div>
+</div>
+
+<script>
+    const logicInput = document.getElementById('logicAddress');
+    const outputBytecode = document.getElementById('outputBytecode');
+    const anatomyContainer = document.getElementById('anatomyContainer');
+    const addrError = document.getElementById('addrError');
+
+    const proxyInput = document.getElementById('inputProxy');
+    const extractedAddress = document.getElementById('extractedAddress');
+    const proxyError = document.getElementById('proxyError');
+
+    const PREFIX = "363d3d373d3d3d363d73";
+    const POSTFIX = "5af43d82803e903d91602b57fd5bf3";
+
+    const OPCODES = {
+        "36": "CALLDATASIZE",
+        "3d": "RETURNDATASIZE",
+        "37": "CALLDATACOPY",
+        "73": "PUSH20 (Logic Addr)",
+        "5a": "GAS",
+        "f4": "DELEGATECALL",
+        "82": "DUP3",
+        "80": "DUP1",
+        "3e": "RETURNDATACOPY",
+        "90": "SWAP1",
+        "91": "SWAP2",
+        "60": "PUSH1 (Offset)",
+        "2b": "2b (JUMP Dest)",
+        "57": "JUMPI",
+        "fd": "REVERT",
+        "5b": "JUMPDEST",
+        "f3": "RETURN"
+    };
+
+    function cleanHex(h) {
+        if (h.startsWith('0x')) return h.slice(2).toLowerCase();
+        return h.toLowerCase();
+    }
+
+    function isAddress(h) {
+        return /^[0-9a-f]{40}$/i.test(cleanHex(h));
+    }
+
+    function updateGenerator() {
+        const addr = cleanHex(logicInput.value);
+        if (isAddress(addr)) {
+            addrError.style.display = 'none';
+            const full = PREFIX + addr + POSTFIX;
+            outputBytecode.value = '0x' + full;
+            renderAnatomy(addr);
+        } else {
+            addrError.style.display = 'block';
+            outputBytecode.value = '';
+            anatomyContainer.innerHTML = '';
+        }
+    }
+
+    function renderAnatomy(addr) {
+        anatomyContainer.innerHTML = '';
+        
+        const createSpan = (hex, title, className) => {
+            const s = document.createElement('span');
+            s.className = 'op ' + className;
+            s.textContent = hex;
+            s.title = title || OPCODES[hex] || 'Data';
+            return s;
+        };
+
+        // Prefix
+        for (let i = 0; i < PREFIX.length; i += 2) {
+            const byte = PREFIX.substr(i, 2);
+            anatomyContainer.appendChild(createSpan(byte, OPCODES[byte], 'op-pre'));
+        }
+
+        // Address
+        const addrSpan = document.createElement('span');
+        addrSpan.className = 'op op-logic';
+        addrSpan.textContent = addr;
+        addrSpan.title = "Implementation Address (20 bytes)";
+        anatomyContainer.appendChild(addrSpan);
+
+        // Postfix
+        for (let i = 0; i < POSTFIX.length; i += 2) {
+            const byte = POSTFIX.substr(i, 2);
+            anatomyContainer.appendChild(createSpan(byte, OPCODES[byte], 'op-post'));
+        }
+    }
+
+    function updateDeconstructor() {
+        const val = cleanHex(proxyInput.value);
+        proxyError.style.display = 'none';
+        
+        if (val.length === 0) {
+            extractedAddress.value = '';
+            return;
+        }
+
+        // Minimal EIP-1167 is 45 bytes (90 chars hex)
+        // Prefix is 20 chars, Address is 40 chars, Postfix is 30 chars
+        if (val.length === 90 && val.startsWith(PREFIX) && val.endsWith(POSTFIX)) {
+            const addr = val.substring(20, 60);
+            extractedAddress.value = '0x' + addr;
+        } else {
+            proxyError.style.display = 'block';
+            extractedAddress.value = 'Unrecognized Pattern';
+        }
+    }
+
+    logicInput.addEventListener('input', updateGenerator);
+    proxyInput.addEventListener('input', updateDeconstructor);
+
+    // Init
+    updateGenerator();
+</script>
+
+</body>
+</html>
