@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVM Opcode Gas Reference</title>
+    <style>
+        :root {
+            --bg: #0b1211;
+            --card: #111c1a;
+            --accent: #14B8A6;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: #2dd4bf33;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            color: var(--accent);
+            margin: 0 0 8px 0;
+            font-size: 1.5rem;
+        }
+
+        p.subtitle {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input {
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            flex-grow: 1;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        select {
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .op-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .op-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .op-card.active {
+            border-color: var(--accent);
+            background: rgba(20, 184, 166, 0.05);
+        }
+
+        .op-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .op-hex {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .op-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        .op-gas {
+            font-size: 0.85rem;
+            color: #fbbf24;
+        }
+
+        .details-panel {
+            background: var(--card);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+            display: none;
+            position: sticky;
+            bottom: 20px;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.5);
+        }
+
+        .details-panel.visible {
+            display: block;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .detail-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .detail-item span {
+            font-family: monospace;
+            font-size: 1rem;
+        }
+
+        .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        .tag {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-left: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .details-grid { grid-template-columns: 1fr; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>EVM Opcode Reference</h1>
+        <p class="subtitle">Search gas costs, stack operations, and descriptions for Ethereum Virtual Machine opcodes.</p>
+    </header>
+
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Search by name or hex (e.g. PUSH1 or 0x60)...">
+        <select id="categoryFilter">
+            <option value="all">All Categories</option>
+            <option value="arithmetic">Arithmetic</option>
+            <option value="comparison">Comparison</option>
+            <option value="stack">Stack/Memory</option>
+            <option value="flow">Flow Control</option>
+            <option value="system">System/Environment</option>
+            <option value="logging">Logging</option>
+        </select>
+    </div>
+
+    <div class="grid" id="opcodeGrid">
+        <!-- Opcodes populated by JS -->
+    </div>
+
+    <div id="detailsPanel" class="details-panel">
+        <button class="close-btn" onclick="closeDetails()">✕</button>
+        <h2 id="detName" style="color: var(--accent); margin-top: 0;">ADD</h2>
+        <div class="details-grid">
+            <div class="detail-item">
+                <label>Opcode Hex</label>
+                <span id="detHex">0x01</span>
+            </div>
+            <div class="detail-item">
+                <label>Gas Cost</label>
+                <span id="detGas" style="color: #fbbf24;">3</span>
+            </div>
+            <div class="detail-item">
+                <label>Stack Operations</label>
+                <span id="detStack">[a, b] -> [a + b]</span>
+            </div>
+            <div class="detail-item">
+                <label>Category</label>
+                <span id="detCat">Arithmetic</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>Description</label>
+                <span id="detDesc" style="font-family: inherit;">Addition operation.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const opcodes = [
+        { hex: '00', name: 'STOP', gas: '0', cat: 'system', stack: '[] -> []', desc: 'Halts execution.' },
+        { hex: '01', name: 'ADD', gas: '3', cat: 'arithmetic', stack: '[a, b] -> [a + b]', desc: 'Addition operation.' },
+        { hex: '02', name: 'MUL', gas: '5', cat: 'arithmetic', stack: '[a, b] -> [a * b]', desc: 'Multiplication operation.' },
+        { hex: '03', name: 'SUB', gas: '3', cat: 'arithmetic', stack: '[a, b] -> [a - b]', desc: 'Subtraction operation.' },
+        { hex: '04', name: 'DIV', gas: '5', cat: 'arithmetic', stack: '[a, b] -> [a / b]', desc: 'Integer division operation (0 if divisor is 0).' },
+        { hex: '05', name: 'SDIV', gas: '5', cat: 'arithmetic', stack: '[a, b] -> [a / b]', desc: 'Signed integer division operation.' },
+        { hex: '06', name: 'MOD', gas: '5', cat: 'arithmetic', stack: '[a, b] -> [a % b]', desc: 'Modulo remainder operation.' },
+        { hex: '07', name: 'SMOD', gas: '5', cat: 'arithmetic', stack: '[a, b] -> [a % b]', desc: 'Signed modulo remainder operation.' },
+        { hex: '08', name: 'ADDMOD', gas: '8', cat: 'arithmetic', stack: '[a, b, N] -> [(a + b) % N]', desc: 'Modulo addition operation.' },
+        { hex: '09', name: 'MULMOD', gas: '8', cat: 'arithmetic', stack: '[a, b, N] -> [(a * b) % N]', desc: 'Modulo multiplication operation.' },
+        { hex: '0A', name: 'EXP', gas: '10*', cat: 'arithmetic', stack: '[a, b] -> [a ** b]', desc: 'Exponential operation. Gas: 10 + 50 * byte_size(exponent).' },
+        { hex: '0B', name: 'SIGNEXTEND', gas: '5', cat: 'arithmetic', stack: '[b, x] -> [y]', desc: 'Extend length of two\'s complement signed integer.' },
+        { hex: '10', name: 'LT', gas: '3', cat: 'comparison', stack: '[a, b] -> [a < b]', desc: 'Less-than comparison.' },
+        { hex: '11', name: 'GT', gas: '3', cat: 'comparison', stack: '[a, b] -> [a > b]', desc: 'Greater-than comparison.' },
+        { hex: '12', name: 'SLT', gas: '3', cat: 'comparison', stack: '[a, b] -> [a < b]', desc: 'Signed less-than comparison.' },
+        { hex: '13', name: 'SGT', gas: '3', cat: 'comparison', stack: '[a, b] -> [a > b]', desc: 'Signed greater-than comparison.' },
+        { hex: '14', name: 'EQ', gas: '3', cat: 'comparison', stack: '[a, b] -> [a == b]', desc: 'Equality comparison.' },
+        { hex: '15', name: 'ISZERO', gas: '3', cat: 'comparison', stack: '[a] -> [a == 0]', desc: 'Check if value is zero.' },
+        { hex: '16', name: 'AND', gas: '3', cat: 'comparison', stack: '[a, b] -> [a & b]', desc: 'Bitwise AND operation.' },
+        { hex: '17', name: 'OR', gas: '3', cat: 'comparison', stack: '[a, b] -> [a | b]', desc: 'Bitwise OR operation.' },
+        { hex: '18', name: 'XOR', gas: '3', cat: 'comparison', stack: '[a, b] -> [a ^ b]', desc: 'Bitwise XOR operation.' },
+        { hex: '19', name: 'NOT', gas: '3', cat: 'comparison', stack: '[a] -> [~a]', desc: 'Bitwise NOT operation.' },
+        { hex: '1A', name: 'BYTE', gas: '3', cat: 'comparison', stack: '[i, x] -> [y]', desc: 'Retrieve single byte from word.' },
+        { hex: '1B', name: 'SHL', gas: '3', cat: 'comparison', stack: '[shift, val] -> [val << shift]', desc: 'Logical shift left.' },
+        { hex: '1C', name: 'SHR', gas: '3', cat: 'comparison', stack: '[shift, val] -> [val >> shift]', desc: 'Logical shift right.' },
+        { hex: '1D', name: 'SAR', gas: '3', cat: 'comparison', stack: '[shift, val] -> [val >> shift]', desc: 'Arithmetic shift right (signed).' },
+        { hex: '20', name: 'KECCAK256', gas: '30*', cat: 'system', stack: '[off, len] -> [hash]', desc: 'Compute Keccak-256 hash. Gas: 30 + 6 * words.' },
+        { hex: '30', name: 'ADDRESS', gas: '2', cat: 'system', stack: '[] -> [addr]', desc: 'Get address of currently executing account.' },
+        { hex: '31', name: 'BALANCE', gas: '100/2600', cat: 'system', stack: '[addr] -> [bal]', desc: 'Get balance of the given account.' },
+        { hex: '32', name: 'ORIGIN', gas: '2', cat: 'system', stack: '[] -> [addr]', desc: 'Get execution origination address.' },
+        { hex: '33', name: 'CALLER', gas: '2', cat: 'system', stack: '[] -> [addr]', desc: 'Get caller address.' },
+        { hex: '34', name: 'CALLVALUE', gas: '2', cat: 'system', stack: '[] -> [val]', desc: 'Get deposited value by the instruction/transaction.' },
+        { hex: '35', name: 'CALLDATALOAD', gas: '3', cat: 'system', stack: '[i] -> [data]', desc: 'Get input data of current environment.' },
+        { hex: '36', name: 'CALLDATASIZE', gas: '2', cat: 'system', stack: '[] -> [size]', desc: 'Get size of input data.' },
+        { hex: '37', name: 'CALLDATACOPY', gas: '3*', cat: 'system', stack: '[dest, off, len] -> []', desc: 'Copy input data to memory.' },
+        { hex: '38', name: 'CODESIZE', gas: '2', cat: 'system', stack: '[] -> [size]', desc: 'Get size of code running in current environment.' },
+        { hex: '39', name: 'CODECOPY', gas: '3*', cat: 'system', stack: '[dest, off, len] -> []', desc: 'Copy code running in current environment to memory.' },
+        { hex: '3A', name: 'GASPRICE', gas: '2', cat: 'system', stack: '[] -> [price]', desc: 'Get price of gas in current environment.' },
+        { hex: '3B', name: 'EXTCODESIZE', gas: '100/2600', cat: 'system', stack: '[addr] -> [size]', desc: 'Get size of an account\'s code.' },
+        { hex: '3C', name: 'EXTCODECOPY', gas: '100/2600', cat: 'system', stack: '[addr, dest, off, len] -> []', desc: 'Copy an account\'s code to memory.' },
+        { hex: '3D', name: 'RETURNDATASIZE', gas: '2', cat: 'system', stack: '[] -> [size]', desc:
